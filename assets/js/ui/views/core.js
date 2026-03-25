@@ -25,6 +25,18 @@ export function renderBookSettings(book) {
   const coverPreview = hasCover
     ? `<img src="${book.coverImageDataUrl}" alt="" class="w-full max-h-48 object-contain rounded-lg border border-nl-border bg-nl-bg" data-cover-preview />`
     : '<div class="w-full h-36 rounded-lg border border-dashed border-nl-border flex items-center justify-center text-xs text-nl-muted">Sin carátula</div>';
+  const createdRaw = book.createdAt || `${book.date}T12:00:00.000Z`;
+  const createdLabel = (() => {
+    try {
+      return new Date(createdRaw).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    } catch {
+      return book.date || '—';
+    }
+  })();
   return `
     <div class="max-w-3xl mx-auto p-6 space-y-6">
       <h2 class="text-lg font-semibold text-white">Metadatos</h2>
@@ -35,11 +47,13 @@ export function renderBookSettings(book) {
         </div>
         <div class="space-y-1">
           <label class="block text-xs text-nl-muted">Autor</label>
-          <input data-f="author" class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm" value="${escapeHtml(book.author)}" />
+          <p class="text-sm text-slate-300 py-2 px-1">${escapeHtml(book.author || '—')}</p>
+          <p class="text-[11px] text-nl-muted">Procede del <button type="button" data-go-author-profile class="text-indigo-400 hover:text-indigo-300 underline">perfil de autor</button>. Edítalo allí para actualizar los libros nuevos.</p>
         </div>
-        <div class="space-y-1">
-          <label class="block text-xs text-nl-muted">Fecha</label>
-          <input data-f="date" type="date" class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm" value="${escapeHtml(book.date)}" />
+        <div class="space-y-1 md:col-span-2">
+          <label class="block text-xs text-nl-muted">Fecha de creación</label>
+          <p class="text-sm text-slate-300 py-2">${escapeHtml(createdLabel)}</p>
+          <p class="text-[11px] text-nl-muted">Se asigna automáticamente al crear el libro.</p>
         </div>
         <div class="space-y-1">
           <label class="block text-xs text-nl-muted">Categoría</label>

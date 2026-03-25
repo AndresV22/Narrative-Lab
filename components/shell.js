@@ -17,6 +17,7 @@ export function shellMarkup() {
           </button>
         </div>
         <div class="flex items-center gap-2 shrink-0">
+          <button type="button" data-action="author-profile" class="px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised" title="Perfil de autor">Autor</button>
           <span data-save-status class="text-xs text-nl-muted tabular-nums"></span>
           <button type="button" data-action="save-snapshot" class="hidden lg:inline-flex px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none" title="Guardar snapshot del libro actual">Guardar snapshot</button>
           <button type="button" data-action="toggle-right" class="hidden lg:inline-flex px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised" title="Panel lateral">Panel</button>

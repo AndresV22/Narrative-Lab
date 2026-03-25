@@ -43,6 +43,7 @@ export function mountShell(root, app) {
   const saveStatus = /** @type {HTMLElement} */ (root.querySelector('[data-save-status]'));
 
   root.querySelector('[data-action="search"]')?.addEventListener('click', () => app.openSearch());
+  root.querySelector('[data-action="author-profile"]')?.addEventListener('click', () => app.openAuthorProfile());
   const saveSnapshotBtn = /** @type {HTMLButtonElement | null} */ (root.querySelector('[data-action="save-snapshot"]'));
   saveSnapshotBtn?.addEventListener('click', () => {
     saveSnapshotFromHeader(app);
@@ -120,6 +121,9 @@ export function renderSidebar(app) {
     sidebar.innerHTML = `
       <div class="p-4 border-b border-nl-border">
         <p class="text-xs font-medium uppercase tracking-wider text-nl-muted mb-3">Biblioteca</p>
+        <button type="button" data-act="library-home" class="w-full py-2 px-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm text-slate-200 mb-2 ${
+          app.state.view === 'library' || app.state.view === 'authorProfile' ? 'bg-nl-raised text-white' : ''
+        }">Inicio</button>
         <button type="button" data-act="new-book" class="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">+ Nuevo libro</button>
         <button type="button" data-act="template" class="mt-2 w-full py-2 px-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm text-slate-200">Desde plantilla…</button>
       </div>
@@ -151,6 +155,9 @@ export function renderSidebar(app) {
         }">Ajustes</button>
       </div>
     `;
+    sidebar.querySelector('[data-act="library-home"]')?.addEventListener('click', () => {
+      app.goLibraryHome();
+    });
     sidebar.querySelector('[data-act="new-book"]')?.addEventListener('click', () => app.createBook());
     sidebar.querySelector('[data-act="template"]')?.addEventListener('click', () => app.openTemplateModal());
     sidebar.querySelector('[data-act="export-ws"]')?.addEventListener('click', () => app.exportWorkspace());

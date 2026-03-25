@@ -108,6 +108,10 @@ export function renderActsView(book, _app) {
             <input data-act-title="${act.id}" class="flex-1 min-w-[160px] bg-nl-raised border border-nl-border rounded px-3 py-2 text-sm text-white font-medium" value="${escapeHtml(act.title)}" />
             <button type="button" data-del-act="${act.id}" class="text-xs text-red-400 hover:text-red-300 px-2">Eliminar acto</button>
           </div>
+          <div class="space-y-1">
+            <label class="text-[10px] text-nl-muted uppercase tracking-wider">Descripción del acto</label>
+            <textarea data-act-desc="${act.id}" rows="3" class="w-full text-sm bg-nl-bg border border-nl-border rounded px-3 py-2 text-slate-200" placeholder="Qué ocurre o qué quieres cubrir en este acto…">${escapeHtml(act.description || '')}</textarea>
+          </div>
           <p class="text-xs text-nl-muted">Capítulos en este acto:</p>
           <div class="flex flex-wrap gap-x-4 gap-y-2">
             ${chapters.map((ch) => {

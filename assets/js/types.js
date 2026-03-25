@@ -66,6 +66,7 @@
  * @typedef {Object} Act
  * @property {string} id
  * @property {string} title
+ * @property {string} description
  * @property {number} order
  * @property {string[]} chapterIds
  */
@@ -93,6 +94,9 @@
  * @property {string} sourceId
  * @property {string} excerpt
  * @property {string} createdAt
+ * @property {string} [description]
+ * @property {string} [characterId]
+ * @property {string} [chapterId] capítulo padre si sourceKind es escena
  */
 
 /**
@@ -108,6 +112,7 @@
  * @property {string} id
  * @property {string} name
  * @property {string} author
+ * @property {string} createdAt
  * @property {string} date
  * @property {string} category
  * @property {string} narratorType
@@ -132,8 +137,17 @@
  */
 
 /**
+ * @typedef {Object} AuthorProfile
+ * @property {string} name
+ * @property {string} birthDate
+ * @property {string} bio
+ * @property {string} imageDataUrl
+ */
+
+/**
  * @typedef {Object} Workspace
  * @property {number} schemaVersion
+ * @property {AuthorProfile} authorProfile
  * @property {Book[]} books
  */
 

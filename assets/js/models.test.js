@@ -29,6 +29,8 @@ describe('validateWorkspace', () => {
     if (r.ok) {
       expect(r.workspace.schemaVersion).toBe(SCHEMA_VERSION);
       expect(r.workspace.books).toEqual([]);
+      expect(r.workspace.authorProfile).toBeDefined();
+      expect(r.workspace.authorProfile.name).toBe('');
     }
   });
 
@@ -46,6 +48,12 @@ describe('migrateWorkspace', () => {
     const m = migrateWorkspace(ws);
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
     expect(m.books[0].name).toBe('Test');
+    expect(m.authorProfile).toBeDefined();
+  });
+
+  it('añade authorProfile si falta', () => {
+    const m = migrateWorkspace({ schemaVersion: 1, books: [] });
+    expect(m.authorProfile).toBeDefined();
   });
 });
 

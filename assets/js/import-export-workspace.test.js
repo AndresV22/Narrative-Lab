@@ -20,6 +20,7 @@ describe('buildExportPayload', () => {
     expect(p.exportFormatVersion).toBe(EXPORT_FORMAT_VERSION);
     expect(p.books).toHaveLength(1);
     expect(p.books[0].name).toBe('Libro A');
+    expect(p.authorProfile).toBeDefined();
     expect(p.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });

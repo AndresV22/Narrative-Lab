@@ -2,7 +2,7 @@
  * Importar / exportar workspace JSON completo — Narrative Lab
  */
 
-import { validateWorkspace } from './models.js';
+import { validateWorkspace, createEmptyAuthorProfile } from './models.js';
 import { deepClone, uuid } from './utils.js';
 
 /** Nombre de la aplicación en metadatos de exportación */
@@ -18,6 +18,7 @@ export const EXPORT_FORMAT_VERSION = 1;
 export function buildExportPayload(workspace) {
   return {
     schemaVersion: workspace.schemaVersion,
+    authorProfile: workspace.authorProfile || createEmptyAuthorProfile(),
     books: workspace.books,
     exportedAt: new Date().toISOString(),
     appName: APP_EXPORT_NAME,
@@ -85,8 +86,14 @@ export function mergeWorkspaces(base, incoming) {
       map.set(b.id, deepClone(b));
     }
   }
+  const authorProfile = incoming.authorProfile
+    ? deepClone(incoming.authorProfile)
+    : base.authorProfile
+      ? deepClone(base.authorProfile)
+      : createEmptyAuthorProfile();
   return {
     schemaVersion: base.schemaVersion,
+    authorProfile,
     books: Array.from(map.values()),
   };
 }
@@ -112,7 +119,12 @@ export function mergeWorkspacesKeepBoth(base, incoming) {
     existing.add(nb.id);
     books.push(nb);
   }
-  return { schemaVersion: base.schemaVersion, books };
+  const authorProfile = incoming.authorProfile
+    ? deepClone(incoming.authorProfile)
+    : base.authorProfile
+      ? deepClone(base.authorProfile)
+      : createEmptyAuthorProfile();
+  return { schemaVersion: base.schemaVersion, authorProfile, books };
 }
 
 /**

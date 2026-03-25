@@ -2,7 +2,17 @@
  * Enrutado principal, bindings y panel central — Narrative Lab
  */
 
-import { createChapter, createScene, createCharacter, createEvent, createNote, createSnapshot, createAct, createExtraBlock } from './models.js';
+import {
+  createChapter,
+  createScene,
+  createCharacter,
+  createEvent,
+  createNote,
+  createSnapshot,
+  createAct,
+  createExtraBlock,
+  createEmptyAuthorProfile,
+} from './models.js';
 import { configureAutosaveDelay } from './storage.js';
 import {
   exportReminderSummaryLine,
@@ -46,6 +56,9 @@ import {
   renderExportPanel,
   renderWritingGuide,
 } from './ui-views.js';
+import { renderLibraryDashboard } from './ui/views/library-dashboard.js';
+import { renderAuthorProfileForm } from './ui/views/author-profile.js';
+import { normalizeDateLabelIfNumeric, isoDateToDisplay, displayDateToIso } from './date-format.js';
 
 /**
  * @param {HTMLElement} main
@@ -99,12 +112,14 @@ function bindBookSettings(main, app) {
       renderImageLightbox(app, book.coverImageDataUrl, 'Carátula');
     });
   });
+  main.querySelector('[data-go-author-profile]')?.addEventListener('click', () => app.openAuthorProfile());
   main.querySelector('[data-save-meta]')?.addEventListener('click', () => {
     const book = app.getCurrentBook();
-    if (!book) return;
+    if (!book || !app.workspace) return;
+    const ap = app.workspace.authorProfile || createEmptyAuthorProfile();
     book.name = gv(main, 'name');
-    book.author = gv(main, 'author');
-    book.date = gv(main, 'date');
+    book.author = String(ap.name || '').trim();
+    if (book.createdAt) book.date = book.createdAt.slice(0, 10);
     book.category = gv(main, 'category');
     book.narratorType = gv(main, 'narratorType');
     book.status = gv(main, 'status');
@@ -117,6 +132,37 @@ function bindBookSettings(main, app) {
     if (goSynopsis) app.setView('synopsis');
   });
 }
+
+/**
+ * @param {HTMLElement} main
+ * @param {import('./app.js').App} app
+ */
+function bindAuthorProfilePanel(main, app) {
+  const ws = app.workspace;
+  if (!ws) return;
+  if (!ws.authorProfile) ws.authorProfile = createEmptyAuthorProfile();
+  main.querySelector('[data-author-photo]')?.addEventListener('change', async (e) => {
+    const f = /** @type {HTMLInputElement} */ (e.target).files?.[0];
+    if (!f || !ws.authorProfile) return;
+    const { readFileAsDataUrl } = await import('./utils.js');
+    try {
+      ws.authorProfile.imageDataUrl = await readFileAsDataUrl(f);
+      app.persist();
+      app.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error');
+    }
+  });
+  main.querySelector('[data-save-author]')?.addEventListener('click', () => {
+    if (!ws.authorProfile) return;
+    ws.authorProfile.name = gv(main, 'author-name');
+    ws.authorProfile.birthDate = gv(main, 'author-birth');
+    ws.authorProfile.bio = gv(main, 'author-bio');
+    app.persist();
+    app.refresh();
+  });
+}
+
 
 /**
  * @param {HTMLElement} main
@@ -290,6 +336,15 @@ export function renderMain(app) {
     return;
   }
 
+  if (app.state.view === 'authorProfile') {
+    const ws = app.workspace;
+    if (!ws) return;
+    const prof = ws.authorProfile || createEmptyAuthorProfile();
+    main.innerHTML = renderAuthorProfileForm(prof);
+    bindAuthorProfilePanel(main, app);
+    return;
+  }
+
   const book = app.getCurrentBook();
   if (!book) {
     if (app.state.view === 'appSettings') {
@@ -297,12 +352,7 @@ export function renderMain(app) {
       bindAppSettingsPanel(main, app);
       return;
     }
-    main.innerHTML = `
-      <div class="max-w-2xl mx-auto px-6 py-16 text-center">
-        <h2 class="text-2xl font-semibold text-white mb-2">Bienvenido a Narrative Lab</h2>
-        <p class="text-nl-muted text-sm mb-8">Crea un libro o elige uno de la biblioteca. Todo se guarda en tu navegador (IndexedDB).</p>
-      </div>
-    `;
+    main.innerHTML = renderLibraryDashboard(app);
     return;
   }
 
@@ -456,10 +506,28 @@ export function bindMainInteractions(app) {
         if (gid) app.openWritingGuide(gid);
       });
     });
+    return;
+  }
+
+  if (app.state.view === 'authorProfile') {
+    bindAuthorProfilePanel(main, app);
+    return;
   }
 
   const book = app.getCurrentBook();
-  if (!book) return;
+  if (!book) {
+    if (app.state.view === 'appSettings') {
+      bindAppSettingsPanel(main, app);
+      return;
+    }
+    main.querySelectorAll('[data-lib-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-lib-open');
+        if (id) app.openBook(id);
+      });
+    });
+    return;
+  }
 
   if (app.state.view === 'characters') {
     main.querySelector('[data-add-char]')?.addEventListener('click', () => {
@@ -610,19 +678,30 @@ export function bindMainInteractions(app) {
     if (selId) {
       const ev = book.events.find((e) => e.id === selId);
       if (ev) {
+        const dateTxt = /** @type {HTMLInputElement|null} */ (main.querySelector(`[data-ev-date="${ev.id}"]`));
+        const dateCal = /** @type {HTMLInputElement|null} */ (main.querySelector(`[data-ev-date-cal="${ev.id}"]`));
+        if (dateTxt && dateCal) {
+          const iso = displayDateToIso(dateTxt.value);
+          if (iso) dateCal.value = iso;
+          dateCal.addEventListener('change', () => {
+            const v = dateCal.value;
+            if (v) dateTxt.value = isoDateToDisplay(v);
+          });
+        }
         main.querySelector(`[data-save-ev="${ev.id}"]`)?.addEventListener('click', () => {
           ev.title = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-title="${ev.id}"]`)).value;
-          ev.dateLabel = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-date="${ev.id}"]`)).value;
+          let dl = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-date="${ev.id}"]`)).value;
+          dl = normalizeDateLabelIfNumeric(dl);
+          ev.dateLabel = dl;
           const sk = parseInt(
             String(/** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-sort="${ev.id}"]`)).value),
             10
           );
           ev.sortKey = Number.isNaN(sk) ? ev.sortKey : sk;
           ev.content = /** @type {HTMLTextAreaElement} */ (main.querySelector(`[data-ev-body="${ev.id}"]`)).value;
+          app.state.timelineEventId = null;
           app.persist();
-          renderMain(app);
-          bindMainInteractions(app);
-          renderRightPanel(app);
+          app.refresh();
         });
         main.querySelector(`[data-del-ev="${ev.id}"]`)?.addEventListener('click', () => {
           app.deleteEventById(ev.id);
@@ -688,6 +767,10 @@ export function bindMainInteractions(app) {
     book.acts?.forEach((act) => {
       main.querySelector(`[data-act-title="${act.id}"]`)?.addEventListener('change', (e) => {
         act.title = /** @type {HTMLInputElement} */ (e.target).value;
+        app.persist();
+      });
+      main.querySelector(`[data-act-desc="${act.id}"]`)?.addEventListener('change', (e) => {
+        act.description = /** @type {HTMLTextAreaElement} */ (e.target).value;
         app.persist();
       });
       main.querySelector(`[data-del-act="${act.id}"]`)?.addEventListener('click', () => {
@@ -766,10 +849,24 @@ export function bindMainInteractions(app) {
   }
 
   if (app.state.view === 'highlights') {
+    book.highlights.forEach((h) => {
+      main.querySelector(`[data-save-hl="${h.id}"]`)?.addEventListener('click', () => {
+        const desc = main.querySelector(`[data-hl-desc="${h.id}"]`);
+        const sel = main.querySelector(`[data-hl-char="${h.id}"]`);
+        h.description = desc && 'value' in desc ? String(/** @type {HTMLTextAreaElement} */ (desc).value) : '';
+        h.characterId = sel && 'value' in sel ? String(/** @type {HTMLSelectElement} */ (sel).value) : '';
+        app.persist();
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelector(`[data-go-hl="${h.id}"]`)?.addEventListener('click', () => {
+        app.openHighlightSource(h);
+      });
+    });
     main.querySelectorAll('[data-del-hl]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-del-hl');
-        book.highlights = book.highlights.filter((h) => h.id !== id);
+        book.highlights = book.highlights.filter((x) => x.id !== id);
         app.persist();
         renderMain(app);
         bindMainInteractions(app);

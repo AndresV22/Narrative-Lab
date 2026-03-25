@@ -5,7 +5,7 @@
 import { normalizeCharacterRole } from './character-roles.js';
 import { uuid, deepClone, stripHtml } from './utils.js';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** @typedef {{ kind: string, id: string }} EntityRef */
 
@@ -103,6 +103,7 @@ export function createAct(overrides = {}) {
   return {
     id: uuid(),
     title: 'Nuevo acto',
+    description: '',
     order: 0,
     chapterIds: [],
     ...overrides,
@@ -155,11 +156,13 @@ export function createSnapshot(label, bookPayload, overrides = {}) {
  * @returns {import('./types.js').Book}
  */
 export function createEmptyBook(overrides = {}) {
+  const createdAt = new Date().toISOString();
   return {
     id: uuid(),
     name: 'Sin título',
     author: '',
-    date: new Date().toISOString().slice(0, 10),
+    createdAt,
+    date: createdAt.slice(0, 10),
     category: '',
     narratorType: 'Tercera persona',
     status: 'Borrador',
@@ -185,11 +188,25 @@ export function createEmptyBook(overrides = {}) {
 }
 
 /**
+ * @returns {import('./types.js').AuthorProfile}
+ */
+export function createEmptyAuthorProfile(overrides = {}) {
+  return {
+    name: '',
+    birthDate: '',
+    bio: '',
+    imageDataUrl: '',
+    ...overrides,
+  };
+}
+
+/**
  * @returns {import('./types.js').Workspace}
  */
 export function createEmptyWorkspace() {
   return {
     schemaVersion: SCHEMA_VERSION,
+    authorProfile: createEmptyAuthorProfile(),
     books: [],
   };
 }
@@ -201,11 +218,15 @@ export function createEmptyWorkspace() {
  */
 export function normalizeBook(raw) {
   const b = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
+  const legacyDate = typeof b.date === 'string' ? b.date : new Date().toISOString().slice(0, 10);
+  const createdAt =
+    typeof b.createdAt === 'string' && b.createdAt.trim() ? b.createdAt : `${legacyDate}T12:00:00.000Z`;
   const book = createEmptyBook({
     id: typeof b.id === 'string' ? b.id : uuid(),
     name: typeof b.name === 'string' ? b.name : 'Sin título',
     author: typeof b.author === 'string' ? b.author : '',
-    date: typeof b.date === 'string' ? b.date : new Date().toISOString().slice(0, 10),
+    createdAt,
+    date: createdAt.slice(0, 10),
     category: typeof b.category === 'string' ? b.category : '',
     narratorType: typeof b.narratorType === 'string' ? b.narratorType : 'Tercera persona',
     status: typeof b.status === 'string' ? b.status : 'Borrador',
@@ -256,6 +277,7 @@ function normalizeAct(raw) {
   return createAct({
     id: typeof a.id === 'string' ? a.id : uuid(),
     title: typeof a.title === 'string' ? a.title : 'Acto',
+    description: typeof a.description === 'string' ? a.description : '',
     order: typeof a.order === 'number' ? a.order : 0,
     chapterIds: Array.isArray(a.chapterIds) ? a.chapterIds.map(String) : [],
   });
@@ -360,6 +382,9 @@ function normalizeHighlight(raw) {
     {
       id: typeof h.id === 'string' ? h.id : uuid(),
       createdAt: typeof h.createdAt === 'string' ? h.createdAt : new Date().toISOString(),
+      description: typeof h.description === 'string' ? h.description : '',
+      characterId: typeof h.characterId === 'string' ? h.characterId : '',
+      chapterId: typeof h.chapterId === 'string' ? h.chapterId : '',
     }
   );
 }
@@ -414,10 +439,13 @@ export function validateWorkspace(raw) {
       return { ok: false, error: `Versión de esquema no soportada (${ver}). Actualiza Narrative Lab.` };
     }
     const books = o.books.map(normalizeBook);
+    const apRaw = o.authorProfile && typeof o.authorProfile === 'object' ? o.authorProfile : null;
+    const authorProfile = normalizeAuthorProfile(apRaw);
     return {
       ok: true,
       workspace: {
         schemaVersion: SCHEMA_VERSION,
+        authorProfile,
         books,
       },
     };
@@ -431,7 +459,27 @@ export function validateWorkspace(raw) {
  * @param {import('./types.js').Workspace} ws
  * @returns {import('./types.js').Workspace}
  */
+/**
+ * @param {unknown} raw
+ * @returns {import('./types.js').AuthorProfile}
+ */
+function normalizeAuthorProfile(raw) {
+  const p = raw && typeof raw === 'object' ? /** @type {Record<string, unknown>} */ (raw) : {};
+  return createEmptyAuthorProfile({
+    name: typeof p.name === 'string' ? p.name : '',
+    birthDate: typeof p.birthDate === 'string' ? p.birthDate : '',
+    bio: typeof p.bio === 'string' ? p.bio : '',
+    imageDataUrl: typeof p.imageDataUrl === 'string' ? p.imageDataUrl : '',
+  });
+}
+
+/**
+ * Migra workspace antiguo si hiciera falta.
+ * @param {import('./types.js').Workspace} ws
+ * @returns {import('./types.js').Workspace}
+ */
 export function migrateWorkspace(ws) {
   const books = (ws.books || []).map((bk) => normalizeBook(bk));
-  return { ...ws, schemaVersion: SCHEMA_VERSION, books };
+  const authorProfile = normalizeAuthorProfile(ws.authorProfile);
+  return { ...ws, schemaVersion: SCHEMA_VERSION, authorProfile, books };
 }

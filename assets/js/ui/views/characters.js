@@ -78,12 +78,12 @@ export function renderCharacterForm(book, ch, _app) {
     <div class="max-w-2xl mx-auto p-6 space-y-3">
       <button type="button" data-back-char class="text-sm text-indigo-400">← Personajes</button>
       <div class="flex gap-4">
-        <div class="shrink-0">
+        <div class="shrink-0 flex flex-col gap-2 w-full max-w-[200px] sm:w-40">
           <div class="w-24 h-24 rounded-xl border border-nl-border bg-nl-raised overflow-hidden">
             ${ch.imageDataUrl ? `<img src="${ch.imageDataUrl}" alt="" class="w-full h-full object-cover cursor-pointer" data-char-img/>` : '<div class="w-full h-full flex items-center justify-center text-xs text-nl-muted">Sin imagen</div>'}
           </div>
-          <input type="file" accept="image/*" data-char-file class="mt-2 text-xs text-nl-muted" />
-          ${ch.imageDataUrl ? `<button type="button" data-char-img-zoom class="mt-1 text-xs text-indigo-400 hover:text-indigo-300">Ver imagen</button>` : ''}
+          <input type="file" accept="image/*" data-char-file class="w-full text-xs text-nl-muted file:mr-2" />
+          ${ch.imageDataUrl ? `<button type="button" data-char-img-zoom class="w-full text-left text-xs text-indigo-400 hover:text-indigo-300 py-1">Ver imagen</button>` : ''}
         </div>
         <div class="flex-1 space-y-2">
           <label class="text-xs text-nl-muted">Nombre</label>

@@ -14,6 +14,7 @@ import {
 import {
   createEmptyBook,
   createHighlight,
+  createEmptyAuthorProfile,
 } from './models.js';
 import { debounce } from './utils.js';
 import {
@@ -38,6 +39,7 @@ import {
   mergeWorkspaces,
   mergeWorkspacesKeepBoth,
 } from './import-export-workspace.js';
+import { inferChapterIdForSceneHighlight } from './highlight-source.js';
 
 /**
  * @typedef {Object} NavState
@@ -62,7 +64,7 @@ export class App {
     /** @type {NavState} */
     this.state = {
       bookId: null,
-      view: 'synopsis',
+      view: 'library',
       chapterId: null,
       sceneId: null,
       characterId: null,
@@ -253,7 +255,7 @@ export class App {
    * @param {string|null} id
    * @param {string|null} chapterId
    */
-  tryHighlight(kind, id, _chapterId) {
+  tryHighlight(kind, id, chapterId) {
     const book = this.getCurrentBook();
     if (!book || !this.editor) return;
     const text = this.editor.getSelectedText();
@@ -263,14 +265,91 @@ export class App {
     }
     if (!confirm('¿Añadir esta frase a «Frases destacadas»?')) return;
     const sid = id || kind;
-    book.highlights.push(createHighlight(book.id, kind, String(sid), text));
+    /** @type {Record<string, string>} */
+    const extra = { description: '', characterId: '', chapterId: '' };
+    if (kind === 'scene' && chapterId) extra.chapterId = chapterId;
+    book.highlights.push(createHighlight(book.id, kind, String(sid), text, extra));
     this.persist();
+  }
+
+  /**
+   * Navega al origen de una frase destacada.
+   * @param {import('./types.js').Highlight} h
+   */
+  openHighlightSource(h) {
+    const book = this.getCurrentBook();
+    if (!book || h.bookId !== book.id) return;
+    const kind = h.sourceKind;
+    this.state.timelineEventId = null;
+    if (kind === 'synopsis') {
+      this.setView('synopsis');
+      return;
+    }
+    if (kind === 'historicalContext') {
+      this.setView('historicalContext');
+      return;
+    }
+    if (kind === 'worldRules') {
+      this.setView('worldRules');
+      return;
+    }
+    if (kind === 'prologue') {
+      this.setView('prologue');
+      return;
+    }
+    if (kind === 'epilogue') {
+      this.setView('epilogue');
+      return;
+    }
+    if (kind === 'extras') {
+      this.setView('extras');
+      return;
+    }
+    if (kind === 'chapter' && h.sourceId) {
+      this.state.chapterId = h.sourceId;
+      this.setView('chapter');
+      return;
+    }
+    if (kind === 'scene' && h.sourceId) {
+      const chId = inferChapterIdForSceneHighlight(book, h);
+      this.state.chapterId = chId || null;
+      this.state.sceneId = h.sourceId;
+      if (chId) this.setView('scene');
+      return;
+    }
+    if (kind === 'note' && h.sourceId) {
+      this.state.noteId = h.sourceId;
+      this.setView('note');
+      return;
+    }
+    if (kind === 'extra' && h.sourceId) {
+      this.openExtraEditor(h.sourceId);
+    }
+  }
+
+  /** Vista de biblioteca (dashboard). */
+  goLibraryHome() {
+    this.state.view = 'library';
+    this.refresh();
+  }
+
+  /** Perfil de autor (workspace); no cierra el libro abierto. */
+  openAuthorProfile() {
+    this.state.extraId = null;
+    this.state.guideArticleId = null;
+    this.state.timelineEventId = null;
+    this.state.view = 'authorProfile';
+    this.refresh();
   }
 
   /**
    * @param {string} view
    */
   setView(view) {
+    if (view === 'authorProfile') {
+      this.openAuthorProfile();
+      return;
+    }
     this.state.extraId = null;
     if (view !== 'writingGuide') {
       this.state.guideArticleId = null;
@@ -343,7 +422,12 @@ export class App {
 
   createBook() {
     if (!this.workspace) return;
-    const b = createEmptyBook({ name: 'Nuevo libro' });
+    const ap = this.workspace.authorProfile || createEmptyAuthorProfile();
+    const authorName = String(ap.name || '').trim();
+    const b = createEmptyBook({
+      name: 'Nuevo libro',
+      ...(authorName ? { author: authorName } : {}),
+    });
     this.workspace.books.push(b);
     this.state.bookId = b.id;
     this.state.afterNewBookMeta = true;
@@ -370,6 +454,7 @@ export class App {
 
   closeBook() {
     this.state.bookId = null;
+    this.state.view = 'library';
     this.disposeEditor();
     this.refresh();
   }
@@ -380,6 +465,7 @@ export class App {
     if (!confirm(`¿Eliminar «${book.name}»? Esta acción no se puede deshacer.`)) return;
     this.workspace.books = this.workspace.books.filter((b) => b.id !== book.id);
     this.state.bookId = null;
+    this.state.view = 'library';
     this.persist();
     this.refresh();
   }
@@ -550,6 +636,7 @@ export class App {
     }
     await this.persistImmediate();
     this.state.bookId = null;
+    this.state.view = 'library';
     this.refresh();
   }
 
@@ -576,9 +663,12 @@ export class App {
     const data = await this.loadTemplateData();
     const tpl = data.templates.find((/** @type {any} */ t) => t.id === templateId);
     if (!tpl) return;
+    const ap = this.workspace.authorProfile || createEmptyAuthorProfile();
+    const authorName = String(ap.name || '').trim();
     const book = createEmptyBook({
       name: `${tpl.name} — nuevo`,
       wordGoal: tpl.wordGoal || 50000,
+      ...(authorName ? { author: authorName } : {}),
       ...(typeof tpl.category === 'string' && tpl.category.trim() ? { category: tpl.category.trim() } : {}),
       ...(typeof tpl.synopsisHint === 'string' && tpl.synopsisHint.trim() ? { synopsis: tpl.synopsisHint.trim() } : {}),
     });
@@ -607,11 +697,13 @@ export class App {
     if (!root) return;
 
     this.workspace = await loadWorkspace();
+    if (!this.workspace.authorProfile) {
+      this.workspace.authorProfile = createEmptyAuthorProfile();
+    }
     configureAutosaveDelay(getAutosaveMs());
     this.els = mountShell(root, this);
     setSaveStatusCallback((status) => {
       if (this.els) setSaveBadge(this.els.saveStatus, status);
-      if (status === 'saved') showToast('Cambios guardados correctamente', 'success');
       if (status === 'error') showToast('Error al guardar los datos', 'error');
     });
 

@@ -43,7 +43,10 @@ export function renderTimelineMerged(book, app) {
       <h3 class="text-sm font-medium text-slate-200">Editar evento</h3>
       <div class="flex flex-wrap gap-2 items-center">
         <input data-ev-title="${selected.id}" class="flex-1 min-w-[140px] bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm text-white font-medium" value="${escapeHtml(selected.title)}" placeholder="Título" />
-        <input data-ev-date="${selected.id}" class="w-36 md:w-44 bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-xs" placeholder="Fecha / etiqueta" value="${escapeHtml(selected.dateLabel)}" />
+        <input data-ev-date="${selected.id}" class="w-36 md:w-44 bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-xs" placeholder="DD/MM/AAAA" value="${escapeHtml(selected.dateLabel)}" />
+        <label class="flex items-center gap-1 text-xs text-nl-muted shrink-0"><span class="sr-only">Calendario</span>
+          <input type="date" data-ev-date-cal="${selected.id}" class="bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-xs w-[140px]" title="Elegir fecha" />
+        </label>
         <label class="flex items-center gap-1 text-xs text-nl-muted"><span>Orden</span>
           <input data-ev-sort="${selected.id}" type="number" class="w-16 bg-nl-raised border border-nl-border rounded px-1 py-1" value="${selected.sortKey}" />
         </label>
