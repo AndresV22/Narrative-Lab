@@ -113,6 +113,9 @@ export function renderSidebar(app) {
       <div class="p-4 border-t border-nl-border space-y-2">
         <button type="button" data-act="export-ws" class="w-full py-2 px-3 rounded-lg border border-nl-border text-xs hover:bg-nl-raised">Exportar workspace (JSON)</button>
         <button type="button" data-act="import-ws" class="w-full py-2 px-3 rounded-lg border border-nl-border text-xs hover:bg-nl-raised">Importar workspace…</button>
+        <button type="button" data-act="writing-guide" class="w-full py-2 px-3 rounded-lg border border-nl-border text-xs hover:bg-nl-raised ${
+          app.state.view === 'writingGuide' ? 'bg-nl-raised text-white' : 'text-slate-300'
+        }">Guía de escritura</button>
         <button type="button" data-act="app-settings" class="w-full py-2 px-3 rounded-lg border border-nl-border text-xs hover:bg-nl-raised ${
           app.state.view === 'appSettings' ? 'bg-nl-raised text-white' : 'text-slate-300'
         }">Ajustes</button>
@@ -122,6 +125,7 @@ export function renderSidebar(app) {
     sidebar.querySelector('[data-act="template"]')?.addEventListener('click', () => app.openTemplateModal());
     sidebar.querySelector('[data-act="export-ws"]')?.addEventListener('click', () => app.exportWorkspace());
     sidebar.querySelector('[data-act="import-ws"]')?.addEventListener('click', () => app.triggerImportWorkspace());
+    sidebar.querySelector('[data-act="writing-guide"]')?.addEventListener('click', () => app.openWritingGuide(null));
     sidebar.querySelector('[data-act="app-settings"]')?.addEventListener('click', () => app.setView('appSettings'));
     sidebar.querySelectorAll('[data-open-book]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -178,6 +182,10 @@ export function renderSidebar(app) {
       ${nav('relations', 'Relaciones')}
       ${nav('export', 'Exportar libro')}
       ${nav('settings', 'Metadatos del libro')}
+      <p class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-nl-muted">Guía</p>
+      <button type="button" data-act="writing-guide" class="nav-item w-full text-left px-3 py-2 rounded-lg text-sm ${
+        app.state.view === 'writingGuide' ? 'bg-nl-raised text-white' : 'text-slate-300 hover:bg-nl-raised/60'
+      }">Guía de escritura</button>
     </div>
     <div class="p-3 border-t border-nl-border space-y-2">
       <button type="button" data-act="del-book" class="w-full py-2 px-3 rounded-lg border border-red-500/30 text-red-300 text-xs hover:bg-red-500/10">Eliminar libro…</button>
@@ -185,6 +193,7 @@ export function renderSidebar(app) {
   `;
 
   sidebar.querySelector('[data-back]')?.addEventListener('click', () => app.closeBook());
+  sidebar.querySelector('[data-act="writing-guide"]')?.addEventListener('click', () => app.openWritingGuide(null));
   sidebar.querySelectorAll('[data-nav]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const v = btn.getAttribute('data-nav');
@@ -200,6 +209,7 @@ export function renderSidebar(app) {
  */
 function isBookEditorSurface(app) {
   const v = app.state.view;
+  if (v === 'writingGuide') return false;
   if (v === 'synopsis' || v === 'prologue' || v === 'epilogue') return true;
   if (v === 'extras' && app.state.extraId) return true;
   if (v === 'chapter' || v === 'scene' || v === 'note') return true;

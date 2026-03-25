@@ -29,6 +29,7 @@ import {
   renderSnapshots,
   renderRelations,
   renderExportPanel,
+  renderWritingGuide,
 } from './ui-views.js';
 
 /**
@@ -235,6 +236,11 @@ export function renderMain(app) {
   const { main } = app.els;
   app.disposeEditor();
 
+  if (app.state.view === 'writingGuide') {
+    main.innerHTML = renderWritingGuide(app);
+    return;
+  }
+
   const book = app.getCurrentBook();
   if (!book) {
     if (app.state.view === 'appSettings') {
@@ -382,8 +388,18 @@ export function renderMain(app) {
   main.innerHTML = `<div class="p-8 text-nl-muted">Vista no disponible.</div>`;
 }
 export function bindMainInteractions(app) {
-  const book = app.getCurrentBook();
   const main = app.els.main;
+  if (app.state.view === 'writingGuide') {
+    main.querySelector('[data-guide-back]')?.addEventListener('click', () => app.openWritingGuide(null));
+    main.querySelectorAll('[data-guide-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const gid = btn.getAttribute('data-guide-open');
+        if (gid) app.openWritingGuide(gid);
+      });
+    });
+  }
+
+  const book = app.getCurrentBook();
   if (!book) return;
 
   if (app.state.view === 'characters') {

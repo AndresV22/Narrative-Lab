@@ -13,6 +13,7 @@ import {
   getBookStats,
   getTimelineConflicts,
 } from './analysis.js';
+import { WRITING_GUIDE_ARTICLES, getWritingGuideArticle } from './writing-guide-content.js';
 
 export function wrapEditorSection(title, field) {
   return `
@@ -336,6 +337,76 @@ export function renderActsView(book, app) {
           </div>
         </section>
       `).join('') || '<p class="text-nl-muted text-sm">Sin actos. Pulsa «+ Acto».</p>'}
+    </div>
+  `;
+}
+
+/**
+ * @param {import('./app.js').App} app
+ */
+export function renderWritingGuide(app) {
+  const id = app.state.guideArticleId;
+  if (id) {
+    const article = getWritingGuideArticle(id);
+    if (!article) {
+      return `
+        <div class="max-w-3xl mx-auto p-6">
+          <button type="button" data-guide-back class="text-sm text-indigo-400 hover:text-indigo-300 mb-4">← Índice de la guía</button>
+          <p class="text-nl-muted text-sm">Artículo no encontrado.</p>
+        </div>
+      `;
+    }
+    return `
+      <div class="max-w-3xl mx-auto w-full p-6 flex flex-col min-h-0 flex-1">
+        <button type="button" data-guide-back class="text-sm text-indigo-400 hover:text-indigo-300 mb-4 w-fit">← Índice de la guía</button>
+        <article class="rounded-xl border border-nl-border bg-nl-surface p-6 nl-scroll overflow-y-auto flex-1 min-h-0">
+          <p class="text-[10px] uppercase tracking-wider text-indigo-400/90 mb-2">${escapeHtml(article.category)}</p>
+          <h2 class="text-xl font-semibold text-white mb-4">${escapeHtml(article.title)}</h2>
+          <div class="text-sm max-w-none space-y-1">${article.body}</div>
+        </article>
+      </div>
+    `;
+  }
+
+  const byCat = {};
+  for (const a of WRITING_GUIDE_ARTICLES) {
+    if (!byCat[a.category]) byCat[a.category] = [];
+    byCat[a.category].push(a);
+  }
+  const cats = Object.keys(byCat).sort();
+  const sections = cats
+    .map(
+      (cat) => `
+    <section class="mb-8">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-nl-muted mb-3">${escapeHtml(cat)}</h3>
+      <ul class="space-y-2">
+        ${byCat[cat]
+          .map(
+            (a) => `
+          <li>
+            <button type="button" data-guide-open="${escapeHtml(a.id)}" class="w-full text-left p-4 rounded-xl border border-nl-border bg-nl-surface hover:border-indigo-500/40 transition-colors">
+              <span class="font-medium text-white">${escapeHtml(a.title)}</span>
+              <p class="text-xs text-nl-muted mt-1">${escapeHtml(a.excerpt)}</p>
+            </button>
+          </li>
+        `
+          )
+          .join('')}
+      </ul>
+    </section>
+  `
+    )
+    .join('');
+
+  return `
+    <div class="max-w-3xl mx-auto w-full p-6 flex flex-col min-h-0 flex-1">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-white">Guía de escritura</h2>
+        <p class="text-sm text-nl-muted mt-2 max-w-xl">Ficción, ciencia ficción, fantasía, romance y técnica narrativa. Referencias de estudio a Isaac Asimov, J. R. R. Tolkien y Brandon Sanderson (ilustrativas, no prescriptivas).</p>
+      </div>
+      <div class="nl-scroll overflow-y-auto flex-1 min-h-0" data-guide-index>
+        ${sections}
+      </div>
     </div>
   `;
 }

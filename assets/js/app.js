@@ -42,6 +42,7 @@ import {
  * @property {boolean} afterNewBookMeta
  * @property {boolean} rightOpen
  * @property {'characters'|'chars_chapters'|'all'} [graphMode]
+ * @property {string|null} [guideArticleId]
  */
 
 export class App {
@@ -60,6 +61,7 @@ export class App {
       afterNewBookMeta: false,
       rightOpen: true,
       graphMode: 'chars_chapters',
+      guideArticleId: null,
     };
     /** @type {import('./editor.js').EditorRealtimeMetrics | null} */
     this.editorMetrics = null;
@@ -252,6 +254,9 @@ export class App {
    */
   setView(view) {
     this.state.extraId = null;
+    if (view !== 'writingGuide') {
+      this.state.guideArticleId = null;
+    }
     this.state.view = view;
     if (view !== 'character') this.state.characterId = null;
     if (view !== 'note') this.state.noteId = null;
@@ -264,6 +269,21 @@ export class App {
       this.state.chapterId = null;
       this.state.sceneId = null;
     }
+    this.refresh();
+  }
+
+  /**
+   * Guía de escritura: índice (articleId null) o artículo concreto.
+   * @param {string|null} [articleId]
+   */
+  openWritingGuide(articleId = null) {
+    this.state.extraId = null;
+    this.state.guideArticleId = articleId;
+    this.state.view = 'writingGuide';
+    this.state.characterId = null;
+    this.state.noteId = null;
+    this.state.chapterId = null;
+    this.state.sceneId = null;
     this.refresh();
   }
 
@@ -293,6 +313,7 @@ export class App {
     this.state.bookId = b.id;
     this.state.afterNewBookMeta = true;
     this.state.view = 'settings';
+    this.state.guideArticleId = null;
     this.persist();
     this.refresh();
   }
@@ -307,6 +328,7 @@ export class App {
     this.state.sceneId = null;
     this.state.characterId = null;
     this.state.noteId = null;
+    this.state.guideArticleId = null;
     this.refresh();
   }
 
