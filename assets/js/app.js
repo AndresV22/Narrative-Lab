@@ -37,6 +37,7 @@ import {
   editorSourceId,
   findCommentMarkEl,
   surroundSelectionWithCommentMark,
+  surroundSelectionWithHighlightMark,
   unwrapCommentMarkInHost,
 } from './editor-helpers.js';
 import { getEditorCommentsPanelOpen, setEditorCommentsPanelOpen } from './prefs.js';
@@ -468,7 +469,14 @@ export class App {
     const extra = { description: '', characterId: '', chapterId: '' };
     if (kind === 'scene' && chapterId) extra.chapterId = chapterId;
     if (kind === 'worldRule' && !id) return;
-    book.highlights.push(createHighlight(book.id, kind, String(sid), text, extra));
+    const h = createHighlight(book.id, kind, String(sid), text, extra);
+    this.editor.focus();
+    if (!surroundSelectionWithHighlightMark(this.editor.host, h.id)) {
+      alert('No se pudo resaltar esta selección (prueba un fragmento más corto o sin saltos).');
+      return;
+    }
+    book.highlights.push(h);
+    this.applyEditorHtml(kind, id, chapterId, this.editor.getHtml());
     this.persist();
   }
 

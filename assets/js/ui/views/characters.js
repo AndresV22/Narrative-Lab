@@ -14,7 +14,10 @@ export function renderCharacterList(book, _app) {
     <div class="nl-view">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 class="text-lg font-semibold text-white">Personajes</h2>
-        <button type="button" data-add-char class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white hover:bg-indigo-500">+ Personaje</button>
+        <div class="flex flex-wrap items-center gap-2 justify-end">
+          <button type="button" data-all-chars-pdf class="shrink-0 px-3 py-2 rounded-lg border border-nl-border text-sm text-slate-200 hover:bg-nl-raised">PDF — todos los personajes</button>
+          <button type="button" data-add-char class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white hover:bg-indigo-500">+ Personaje</button>
+        </div>
       </div>
       <ul class="space-y-2">
         ${book.characters.map((c) => `
@@ -76,7 +79,7 @@ export function renderCharacterForm(book, ch, _app) {
 
   return `
     <div class="nl-view space-y-3">
-      <button type="button" data-back-char class="text-sm text-indigo-400">← Personajes</button>
+      <button type="button" data-back-char class="flex items-center gap-1.5 text-sm text-indigo-400 w-fit"><i class="fa-solid fa-arrow-left text-xs" aria-hidden="true"></i> Personajes</button>
       <div class="flex gap-4">
         <div class="shrink-0 flex flex-col gap-2 w-full max-w-[200px] sm:w-40">
           <div class="w-24 h-24 rounded-xl border border-nl-border bg-nl-raised overflow-hidden">
@@ -129,7 +132,10 @@ export function renderCharacterForm(book, ch, _app) {
         </div>
       </section>
 
-      <button type="button" data-save-char class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm">Guardar</button>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" data-char-pdf class="px-4 py-2 rounded-lg border border-nl-border text-sm text-slate-200 hover:bg-nl-raised">PDF — esta ficha</button>
+        <button type="button" data-save-char class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm">Guardar</button>
+      </div>
     </div>
   `;
 }

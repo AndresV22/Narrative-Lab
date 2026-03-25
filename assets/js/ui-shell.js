@@ -44,6 +44,7 @@ export function mountShell(root, app) {
   const saveStatus = /** @type {HTMLElement} */ (root.querySelector('[data-save-status]'));
 
   root.querySelector('[data-action="search"]')?.addEventListener('click', () => app.openSearch());
+  root.querySelector('[data-action="app-settings"]')?.addEventListener('click', () => app.setView('appSettings'));
   root.querySelector('[data-action="author-profile"]')?.addEventListener('click', () => app.openAuthorProfile());
   const saveSnapshotBtn = /** @type {HTMLButtonElement | null} */ (root.querySelector('[data-action="save-snapshot"]'));
   saveSnapshotBtn?.addEventListener('click', () => {
@@ -186,10 +187,12 @@ export function renderSidebar(app) {
     return;
   }
 
-  const nav = (id, label) =>
-    `<button type="button" data-nav="${id}" class="nav-item w-full text-left px-3 py-2 rounded-lg text-sm ${
+  const nav = (id, label, iconClass) =>
+    `<button type="button" data-nav="${id}" class="nav-item w-full flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm ${
       app.state.view === id ? 'bg-nl-raised text-white' : 'text-slate-300 hover:bg-nl-raised/60'
-    }">${label}</button>`;
+    }"><i class="fa-solid ${iconClass} w-4 shrink-0 text-center text-nl-muted" aria-hidden="true"></i><span class="min-w-0">${escapeHtml(
+      label
+    )}</span></button>`;
 
   const warnCount = countWarningIssues(book);
   const analysisBadge =
@@ -199,38 +202,38 @@ export function renderSidebar(app) {
 
   sidebar.innerHTML = `
     <div class="p-3 border-b border-nl-border">
-      <button type="button" data-back class="text-xs text-indigo-400 hover:text-indigo-300 mb-2">← Biblioteca</button>
+      <button type="button" data-back class="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 mb-2"><i class="fa-solid fa-arrow-left text-[10px]" aria-hidden="true"></i> Biblioteca</button>
       <p class="font-medium text-white truncate text-sm">${escapeHtml(book.name)}</p>
       <p class="text-xs text-nl-muted truncate">${escapeHtml(book.author || 'Sin autor')}</p>
     </div>
     ${exportReminderBanner()}
     <div class="p-2 space-y-0.5 nl-scroll overflow-y-auto flex-1 min-h-0" data-sidebar-nav>
       <p class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-nl-muted">Plan</p>
-      ${nav('synopsis', 'Sinopsis')}
-      ${nav('historicalContext', 'Contexto')}
-      ${nav('worldRules', 'Reglas')}
-      ${nav('prologue', 'Prólogo')}
-      ${nav('chapters', 'Capítulos y escenas')}
-      ${nav('acts', 'Actos')}
-      ${nav('characters', 'Personajes')}
-      ${nav('timeline', 'Línea de tiempo')}
-      ${nav('extras', 'Extras')}
-      ${nav('epilogue', 'Epílogo')}
-      ${nav('notes', 'Notas')}
+      ${nav('synopsis', 'Sinopsis', 'fa-file-lines')}
+      ${nav('historicalContext', 'Contexto', 'fa-landmark')}
+      ${nav('worldRules', 'Reglas', 'fa-gavel')}
+      ${nav('prologue', 'Prólogo', 'fa-book-open')}
+      ${nav('chapters', 'Capítulos y escenas', 'fa-list-ol')}
+      ${nav('acts', 'Actos', 'fa-layer-group')}
+      ${nav('characters', 'Personajes', 'fa-users')}
+      ${nav('timeline', 'Línea de tiempo', 'fa-clock')}
+      ${nav('extras', 'Extras', 'fa-puzzle-piece')}
+      ${nav('epilogue', 'Epílogo', 'fa-book-bookmark')}
+      ${nav('notes', 'Notas', 'fa-note-sticky')}
       <p class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-nl-muted">Herramientas</p>
-      ${nav('highlights', 'Frases destacadas')}
-      <button type="button" data-nav="analysis" class="nav-item w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${
+      ${nav('highlights', 'Frases destacadas', 'fa-star')}
+      <button type="button" data-nav="analysis" class="nav-item w-full flex items-center gap-2.5 justify-between px-3 py-2 rounded-lg text-sm ${
         app.state.view === 'analysis' ? 'bg-nl-raised text-white' : 'text-slate-300 hover:bg-nl-raised/60'
-      }"><span>Análisis</span>${analysisBadge}</button>
-      ${nav('graph', 'Mapa / grafo')}
-      ${nav('snapshots', 'Historial / snapshots')}
-      ${nav('relations', 'Relaciones')}
-      ${nav('export', 'Exportar libro')}
-      ${nav('settings', 'Metadatos del libro')}
+      }"><span class="flex items-center gap-2.5 min-w-0"><i class="fa-solid fa-chart-line w-4 shrink-0 text-center text-nl-muted" aria-hidden="true"></i><span class="min-w-0">Análisis</span></span>${analysisBadge}</button>
+      ${nav('graph', 'Mapa / grafo', 'fa-diagram-project')}
+      ${nav('snapshots', 'Historial / snapshots', 'fa-clock-rotate-left')}
+      ${nav('relations', 'Relaciones', 'fa-link')}
+      ${nav('export', 'Exportar libro', 'fa-file-export')}
+      ${nav('settings', 'Metadatos del libro', 'fa-sliders')}
       <p class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-nl-muted">Guía</p>
-      <button type="button" data-act="writing-guide" class="nav-item w-full text-left px-3 py-2 rounded-lg text-sm ${
+      <button type="button" data-act="writing-guide" class="nav-item w-full flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm ${
         app.state.view === 'writingGuide' ? 'bg-nl-raised text-white' : 'text-slate-300 hover:bg-nl-raised/60'
-      }">Guía de escritura</button>
+      }"><i class="fa-solid fa-book-open-reader w-4 shrink-0 text-center text-nl-muted" aria-hidden="true"></i><span class="min-w-0">Guía de escritura</span></button>
     </div>
     <div class="p-3 border-t border-nl-border space-y-2">
       <button type="button" data-act="del-book" class="w-full py-2 px-3 rounded-lg border border-red-500/30 text-red-300 text-xs hover:bg-red-500/10">Eliminar libro…</button>

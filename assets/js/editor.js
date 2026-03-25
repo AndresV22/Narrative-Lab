@@ -320,33 +320,20 @@ export class RichEditor {
   }
 }
 
-/** Iconos SVG minimalistas (16px) */
-const iconBold =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h8a4 4 0 0 1 3.2 6.4A4 4 0 0 1 18 18H6V4zm4 8h4a2 2 0 1 0 0-4h-4v4zm0 2v4h5a2 2 0 1 0 0-4h-5z"/></svg>';
-const iconItalic =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4h7v2h-2.5l-3.5 12H15v2H8v-2h2.5l3.5-12H10V4z"/></svg>';
-const iconUnderline =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 19h14v2H5v-2zm7-16c3.31 0 6 2.24 6 5s-2.69 5-6 5-6-2.24-6-5 2.69-5 6-5zm0 2c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>';
-const iconListUl =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 6h2v2H4V6zm0 5h2v2H4v-2zm0 5h2v2H4v-2zM8 7h12v2H8V7zm0 5h12v2H8v-2zm0 5h12v2H8v-2z"/></svg>';
-const iconListOl =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 7h12v2H7V7zm0 5h12v2H7v-2zm0 5h12v2H7v-2zM4 5h2v4H4V5zm0 10v2h1v1H4v-3h2v-2H4zm1-5H4v4h2v1H3v-6h2v1z"/></svg>';
-const iconAlignLeft =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 4h12v2H3V9zm0 4h18v2H3v-2zm0 4h12v2H3v-2z"/></svg>';
-const iconAlignCenter =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3V5zm3 4h12v2H6V9zm-3 4h18v2H3v-2zm3 4h12v2H6v-2z"/></svg>';
-const iconAlignRight =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3V5zm6 4h12v2H9V9zm-6 4h18v2H3v-2zm6 4h12v2H9v-2z"/></svg>';
-const iconAlignJustify =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 4h18v2H3V9zm0 4h18v2H3v-2zm0 4h18v2H3v-2z"/></svg>';
-const iconIndent =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 12h18v2H3v-2zm6-8v8l-4-4 4-4zm-6 4h12v2H5v-2z"/></svg>';
-const iconOutdent =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 12h18v2H3v-2zm2-8l4 4-4 4V9zm2 4h12v2H7v-2z"/></svg>';
-const iconPage =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>';
-const iconComment =
-  '<svg class="nl-toolbar-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16v12H7l-3 3V4zm2 2v8h12V6H6z"/></svg>';
+/** Iconos Font Awesome (solid free) */
+const iconBold = '<i class="fa-solid fa-bold nl-toolbar-icon" aria-hidden="true"></i>';
+const iconItalic = '<i class="fa-solid fa-italic nl-toolbar-icon" aria-hidden="true"></i>';
+const iconUnderline = '<i class="fa-solid fa-underline nl-toolbar-icon" aria-hidden="true"></i>';
+const iconListUl = '<i class="fa-solid fa-list-ul nl-toolbar-icon" aria-hidden="true"></i>';
+const iconListOl = '<i class="fa-solid fa-list-ol nl-toolbar-icon" aria-hidden="true"></i>';
+const iconAlignLeft = '<i class="fa-solid fa-align-left nl-toolbar-icon" aria-hidden="true"></i>';
+const iconAlignCenter = '<i class="fa-solid fa-align-center nl-toolbar-icon" aria-hidden="true"></i>';
+const iconAlignRight = '<i class="fa-solid fa-align-right nl-toolbar-icon" aria-hidden="true"></i>';
+const iconAlignJustify = '<i class="fa-solid fa-align-justify nl-toolbar-icon" aria-hidden="true"></i>';
+const iconIndent = '<i class="fa-solid fa-indent nl-toolbar-icon" aria-hidden="true"></i>';
+const iconOutdent = '<i class="fa-solid fa-outdent nl-toolbar-icon" aria-hidden="true"></i>';
+const iconPage = '<i class="fa-solid fa-file-lines nl-toolbar-icon" aria-hidden="true"></i>';
+const iconComment = '<i class="fa-solid fa-comment nl-toolbar-icon" aria-hidden="true"></i>';
 
 /** @param {HTMLElement} toolbarEl @param {RichEditor} editor */
 function syncToolbarToSelection(toolbarEl, editor) {
@@ -527,7 +514,15 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
       if (cmd === 'formatBlock') {
         const sel = toolbarEl.querySelector('[data-block-style]');
         const v = sel && 'value' in sel ? String(/** @type {HTMLSelectElement} */(sel).value) : 'p';
-        run('formatBlock', v);
+        editor.focus();
+        const tag = v === 'blockquote' ? 'blockquote' : v;
+        const arg = tag === 'p' ? '<p>' : `<${tag}>`;
+        try {
+          document.execCommand('formatBlock', false, arg);
+        } catch {
+          document.execCommand('formatBlock', false, tag);
+        }
+        editor.host.dispatchEvent(new Event('input'));
         return;
       }
       if (cmd === 'foreColor' && val) {
@@ -554,7 +549,13 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
     bs.addEventListener('change', () => {
       editor.focus();
       const v = /** @type {HTMLSelectElement} */(bs).value;
-      document.execCommand('formatBlock', false, v);
+      const tag = v === 'blockquote' ? 'blockquote' : v;
+      const arg = tag === 'p' ? '<p>' : `<${tag}>`;
+      try {
+        document.execCommand('formatBlock', false, arg);
+      } catch {
+        document.execCommand('formatBlock', false, tag);
+      }
       editor.host.dispatchEvent(new Event('input'));
     });
   }

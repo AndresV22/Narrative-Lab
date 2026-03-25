@@ -74,6 +74,27 @@ export function stripNlCommentMarks(html) {
 }
 
 /**
+ * Quita marcas de frase destacada del HTML (exportación limpia).
+ * @param {string} html
+ * @returns {string}
+ */
+export function stripNlHighlightMarks(html) {
+  if (!html || typeof html !== 'string') return html;
+  if (typeof DOMParser === 'undefined') return html;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div class="nl-strip-root">${html}</div>`, 'text/html');
+  const root = doc.querySelector('.nl-strip-root');
+  if (!root) return html;
+  root.querySelectorAll('span[data-nl-highlight-id].nl-highlight-mark').forEach((el) => {
+    const parent = el.parentNode;
+    if (!parent) return;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    parent.removeChild(el);
+  });
+  return root.innerHTML;
+}
+
+/**
  * Bloque semántico que contiene el cursor (respecto a `host`).
  * @param {Node|null} node
  * @param {HTMLElement} host
@@ -141,6 +162,46 @@ export function getBlockLineHeightPreset(block) {
  * @param {string} commentId
  * @returns {boolean}
  */
+/**
+ * Envuelve la selección en un span de frase destacada o devuelve false.
+ * @param {HTMLElement} host
+ * @param {string} highlightId
+ * @returns {boolean}
+ */
+export function surroundSelectionWithHighlightMark(host, highlightId) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return false;
+  if (!host.contains(range.commonAncestorContainer)) return false;
+  const span = document.createElement('span');
+  span.className = 'nl-highlight-mark';
+  span.setAttribute('data-nl-highlight-id', highlightId);
+  try {
+    range.surroundContents(span);
+    sel.removeAllRanges();
+    const r = document.createRange();
+    r.selectNodeContents(span);
+    r.collapse(false);
+    sel.addRange(r);
+    return true;
+  } catch {
+    try {
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      range.insertNode(span);
+      sel.removeAllRanges();
+      const r = document.createRange();
+      r.setStartAfter(span);
+      r.collapse(true);
+      sel.addRange(r);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 export function surroundSelectionWithCommentMark(commentId) {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return false;

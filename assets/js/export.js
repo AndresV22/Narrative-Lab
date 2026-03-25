@@ -2,7 +2,8 @@
  * Exportación de libro y formatos — Narrative Lab
  */
 
-import { stripNlCommentMarks } from './editor-helpers.js';
+import { characterRoleLabel } from './character-roles.js';
+import { stripNlCommentMarks, stripNlHighlightMarks } from './editor-helpers.js';
 import { sortByOrder, stripHtml, wordCountFromHtml } from './utils.js';
 
 /**
@@ -10,7 +11,7 @@ import { sortByOrder, stripHtml, wordCountFromHtml } from './utils.js';
  * @param {string} [html]
  */
 function cleanExportHtml(html) {
-  return stripNlCommentMarks(html || '');
+  return stripNlHighlightMarks(stripNlCommentMarks(html || ''));
 }
 
 /**
@@ -90,6 +91,171 @@ function escape(s) {
 }
 
 /**
+ * Sinopsis, contexto, reglas, personajes, extras y notas en un solo HTML.
+ * @param {import('./types.js').Book} book
+ * @returns {string}
+ */
+export function assembleReferenceBundleHtml(book) {
+  const parts = [];
+  parts.push(`<h1>${escape(book.name)} — Material de planificación</h1>`);
+  if (book.author) parts.push(`<p class="meta"><em>${escape(book.author)}</em></p>`);
+
+  if (book.synopsis && stripHtml(book.synopsis)) {
+    parts.push('<h2>Sinopsis</h2>', cleanExportHtml(book.synopsis));
+  }
+
+  if (book.historicalContext && stripHtml(book.historicalContext)) {
+    parts.push('<h2>Contexto</h2>', cleanExportHtml(book.historicalContext));
+  }
+
+  const rules = sortByOrder(book.rules || [], 'order');
+  if (rules.length) {
+    parts.push('<h2>Reglas del mundo</h2>');
+    for (const r of rules) {
+      parts.push(`<h3>${escape(r.title || 'Regla')}</h3>`, cleanExportHtml(r.content || ''));
+    }
+  }
+  if (stripHtml(book.worldRules || '')) {
+    parts.push('<h2>Reglas (texto heredado)</h2>', cleanExportHtml(book.worldRules || ''));
+  }
+
+  const chars = book.characters || [];
+  if (chars.length) {
+    parts.push('<h2>Personajes</h2>');
+    for (const c of chars) {
+      parts.push(
+        `<h3>${escape(c.name || 'Sin nombre')}</h3>`,
+        characterPlanningFieldsHtml(c)
+      );
+    }
+  }
+
+  const blocks = book.extraBlocks || [];
+  if (blocks.length) {
+    parts.push('<h2>Extras</h2>');
+    for (const eb of blocks) {
+      parts.push(`<h3>${escape(eb.title)}</h3>`, cleanExportHtml(eb.content || ''));
+    }
+  } else if (book.extras && stripHtml(book.extras)) {
+    parts.push('<h2>Extras</h2>', cleanExportHtml(book.extras));
+  }
+
+  if (book.notes && book.notes.length) {
+    parts.push('<h2>Notas</h2>');
+    for (const n of book.notes) {
+      parts.push(`<h3>${escape(n.title)}</h3>`, cleanExportHtml(n.content || ''));
+    }
+  }
+
+  return `<article class="nl-book-export nl-reference-bundle">${parts.join('\n')}</article>`;
+}
+
+/**
+ * @param {import('./types.js').Character} ch
+ */
+function characterPlanningFieldsHtml(ch) {
+  let html = `<p><strong>Papel:</strong> ${escape(characterRoleLabel(ch.role))}</p>`;
+  if (ch.age) html += `<p><strong>Edad:</strong> ${escape(ch.age)}</p>`;
+  if (ch.imageDataUrl) {
+    html += `<p><img src="${ch.imageDataUrl}" alt="" style="max-width:12rem;height:auto;"/></p>`;
+  }
+  const blocks = [
+    ['Descripción', ch.description],
+    ['Personalidad', ch.personality],
+    ['Objetivos', ch.goals],
+    ['Conflictos', ch.conflicts],
+    ['Arco narrativo', ch.narrativeArc],
+  ];
+  for (const [label, val] of blocks) {
+    if (val && stripHtml(val)) {
+      html += `<h4>${escape(label)}</h4>${cleanExportHtml(val)}`;
+    }
+  }
+  return html;
+}
+
+/**
+ * @param {import('./types.js').Character} ch
+ */
+function characterPrintFieldsHtml(ch) {
+  return characterPlanningFieldsHtml(ch);
+}
+
+/**
+ * HTML imprimible: una ficha de personaje (título + libro).
+ * @param {import('./types.js').Book} book
+ * @param {import('./types.js').Character} ch
+ */
+export function characterToPrintableHtml(book, ch) {
+  return `<article class="nl-book-export nl-char-print"><h1>${escape(ch.name || 'Personaje')}</h1><p class="meta"><em>${escape(
+    book.name
+  )}</em></p>${characterPrintFieldsHtml(ch)}</article>`;
+}
+
+/**
+ * HTML imprimible: todas las fichas.
+ * @param {import('./types.js').Book} book
+ */
+export function allCharactersPrintableHtml(book) {
+  const parts = [`<h1>${escape(book.name)}</h1><h2>Personajes</h2>`];
+  for (const ch of book.characters || []) {
+    parts.push(`<h2>${escape(ch.name || 'Sin nombre')}</h2>`, characterPrintFieldsHtml(ch));
+  }
+  return `<article class="nl-book-export nl-char-print-all">${parts.join('\n')}</article>`;
+}
+
+function injectPrintRoot(innerArticleHtml) {
+  let root = document.getElementById('nl-print-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'nl-print-root';
+    document.body.appendChild(root);
+  }
+  root.innerHTML = `
+    <div class="nl-print-export" style="padding: 2rem; max-width: 40rem; margin: 0 auto;">
+      ${innerArticleHtml}
+    </div>
+  `;
+  window.print();
+  setTimeout(() => {
+    root.innerHTML = '';
+  }, 500);
+}
+
+/**
+ * PDF vía impresión: material de planificación.
+ * @param {import('./types.js').Book} book
+ */
+export function exportReferenceBundlePdf(book) {
+  injectPrintRoot(assembleReferenceBundleHtml(book));
+}
+
+/**
+ * @param {import('./types.js').Book} book
+ */
+export function exportReferenceBundleTxt(book) {
+  const html = assembleReferenceBundleHtml(book);
+  const text = stripHtml(html).replace(/\s+\n/g, '\n').trim();
+  downloadText(`${sanitizeFilename(book.name)}-planificacion.txt`, text, 'text/plain;charset=utf-8');
+}
+
+/**
+ * @param {import('./types.js').Book} book
+ */
+export function exportCharacterPdfPrint(book, characterId) {
+  const ch = book.characters?.find((c) => c.id === characterId);
+  if (!ch) return;
+  injectPrintRoot(characterToPrintableHtml(book, ch));
+}
+
+/**
+ * @param {import('./types.js').Book} book
+ */
+export function exportAllCharactersPdfPrint(book) {
+  injectPrintRoot(allCharactersPrintableHtml(book));
+}
+
+/**
  * HTML muy simple a Markdown (énfasis básico).
  * @param {string} html
  * @returns {string}
@@ -142,21 +308,7 @@ export function exportTxt(book) {
  * @param {import('./types.js').Book} book
  */
 export function exportPdfPrint(book) {
-  let root = document.getElementById('nl-print-root');
-  if (!root) {
-    root = document.createElement('div');
-    root.id = 'nl-print-root';
-    document.body.appendChild(root);
-  }
-  root.innerHTML = `
-    <div class="nl-print-export" style="padding: 2rem; max-width: 40rem; margin: 0 auto;">
-      ${assembleBookHtml(book, true)}
-    </div>
-  `;
-  window.print();
-  setTimeout(() => {
-    root.innerHTML = '';
-  }, 500);
+  injectPrintRoot(assembleBookHtml(book, true));
 }
 
 /**
@@ -274,10 +426,10 @@ function processBlockForDocx(node, out, docx) {
 }
 
 /**
- * Exporta DOCX con OOXML real (docx vía esm.sh). Evita html-docx-js (altChunk), que Word suele abrir vacío.
- * @param {import('./types.js').Book} book
+ * @param {string} html
+ * @param {string} filenameStem
  */
-export async function exportDocx(book) {
+async function exportDocxFromHtml(html, filenameStem) {
   let docx;
   try {
     docx = await import('docx');
@@ -288,7 +440,6 @@ export async function exportDocx(book) {
   if (!Document || !Packer || !Paragraph || !TextRun) {
     throw new Error('La librería DOCX no expone la API esperada.');
   }
-  const html = assembleBookHtml(book, true);
   const parser = new DOMParser();
   const docHtml = parser.parseFromString(`<div class="nl-docx-wrap">${html}</div>`, 'text/html');
   const wrap = docHtml.querySelector('.nl-docx-wrap');
@@ -312,19 +463,33 @@ export async function exportDocx(book) {
     ],
   });
   const blob = await Packer.toBlob(doc);
-  downloadBlob(`${sanitizeFilename(book.name)}.docx`, blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  downloadBlob(`${sanitizeFilename(filenameStem)}.docx`, blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 }
 
 /**
- * EPUB mínimo con JSZip.
+ * Exporta DOCX con OOXML real (docx vía esm.sh). Evita html-docx-js (altChunk), que Word suele abrir vacío.
  * @param {import('./types.js').Book} book
  */
-export async function exportEpub(book) {
+export async function exportDocx(book) {
+  await exportDocxFromHtml(assembleBookHtml(book, true), book.name);
+}
+
+/**
+ * @param {import('./types.js').Book} book
+ */
+export async function exportReferenceBundleDocx(book) {
+  await exportDocxFromHtml(assembleReferenceBundleHtml(book), `${book.name} - planificacion`);
+}
+
+/**
+ * @param {string} htmlContent
+ * @param {string} title
+ * @param {string} bookId
+ * @param {string} downloadFilename
+ */
+async function exportEpubFromHtml(htmlContent, title, bookId, downloadFilename) {
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
-  const title = book.name || 'Libro';
-  const htmlContent = assembleBookHtml(book, true);
-
   const mimetype = 'application/epub+zip';
   zip.file('mimetype', mimetype, { compression: 'STORE' });
 
@@ -342,7 +507,7 @@ export async function exportEpub(book) {
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:title>${escapedTitle}</dc:title>
     <dc:language>es</dc:language>
-    <dc:identifier id="bookid">urn:uuid:${book.id}</dc:identifier>
+    <dc:identifier id="bookid">urn:uuid:${bookId}</dc:identifier>
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
@@ -373,7 +538,26 @@ export async function exportEpub(book) {
   oebps?.file('nav.xhtml', navXhtml);
 
   const blob = await zip.generateAsync({ type: 'blob', mimeType: mimetype });
-  downloadBlob(`${sanitizeFilename(book.name)}.epub`, blob, mimetype);
+  downloadBlob(downloadFilename, blob, mimetype);
+}
+
+/**
+ * EPUB mínimo con JSZip.
+ * @param {import('./types.js').Book} book
+ */
+export async function exportEpub(book) {
+  const title = book.name || 'Libro';
+  const htmlContent = assembleBookHtml(book, true);
+  await exportEpubFromHtml(htmlContent, title, book.id, `${sanitizeFilename(book.name)}.epub`);
+}
+
+/**
+ * @param {import('./types.js').Book} book
+ */
+export async function exportReferenceBundleEpub(book) {
+  const title = `${book.name || 'Libro'} — Planificación`;
+  const htmlContent = assembleReferenceBundleHtml(book);
+  await exportEpubFromHtml(htmlContent, title, book.id, `${sanitizeFilename(book.name)}-planificacion.epub`);
 }
 
 /**

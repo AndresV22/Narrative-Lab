@@ -306,7 +306,7 @@ export function renderRelations(book, _app) {
 
 export function renderExportPanel(_book, _app) {
   return `
-    <div class="nl-view space-y-6">
+    <div class="nl-view space-y-8">
       <div>
         <h2 class="text-lg font-semibold text-white mb-2">Exportar libro</h2>
         <p class="text-sm text-nl-muted">Incluye prólogo, capítulos, escenas, epílogo, extras y frases destacadas.</p>
@@ -317,6 +317,16 @@ export function renderExportPanel(_book, _app) {
         <button type="button" data-exp="pdf" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">PDF (imprimir)</button>
         <button type="button" data-exp="docx" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">Word (.docx)</button>
         <button type="button" data-exp="epub" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">EPUB</button>
+      </div>
+      <div>
+        <h3 class="text-sm font-medium text-slate-200 mb-2">Material de planificación</h3>
+        <p class="text-sm text-nl-muted mb-3">Sinopsis, contexto, reglas, personajes, extras y notas en un solo archivo.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button type="button" data-exp-ref="pdf" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">PDF (imprimir)</button>
+          <button type="button" data-exp-ref="docx" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">Word (.docx)</button>
+          <button type="button" data-exp-ref="txt" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">Texto (.txt)</button>
+          <button type="button" data-exp-ref="epub" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">EPUB</button>
+        </div>
       </div>
     </div>
   `;

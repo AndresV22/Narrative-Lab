@@ -5,6 +5,7 @@
 @import '@fontsource/crimson-pro/400.css';
 @import '@fontsource/crimson-pro/400-italic.css';
 @import '@fontsource/crimson-pro/600.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
 
 @tailwind base;
 @tailwind components;
@@ -58,6 +59,33 @@ html {
   line-height: 1.75;
 }
 
+.nl-editor p {
+  font-size: 1.0625rem;
+  font-weight: 400;
+  margin: 0.5rem 0;
+  color: rgb(226 232 240);
+}
+
+.nl-editor h2 {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 1.35rem 0 0.5rem;
+  color: rgb(248 250 252);
+}
+
+.nl-editor h3 {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  margin: 1rem 0 0.35rem;
+  color: rgb(226 232 240);
+}
+
 .nl-editor:focus,
 .nl-editor:focus-visible {
   outline: none;
@@ -108,8 +136,12 @@ html {
 }
 
 .nl-toolbar-icon {
-  display: block;
-  vertical-align: middle;
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  font-size: 0.875rem;
+  line-height: 1;
+  vertical-align: -0.125em;
 }
 
 .nl-editor-desk.nl-editor-page-mode {
@@ -122,6 +154,12 @@ html {
   width: 100%;
   max-width: min(100%, 48rem);
   box-sizing: border-box;
+}
+
+/* En modo página el ancho lo fija la hoja (Carta, A4…), no el tope fluido */
+.nl-editor-sheet.nl-editor-sheet-fluid.nl-editor-sheet--page {
+  max-width: none;
+  width: auto;
 }
 
 /* Modo página: hoja con tamaño fijo (ANSI / ISO 216) */
@@ -195,6 +233,29 @@ span.nl-comment-mark:hover {
   background: rgb(99 102 241 / 0.28);
 }
 
+span.nl-highlight-mark {
+  position: relative;
+  display: inline;
+  background: rgb(250 204 21 / 0.22);
+  border-radius: 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.12em;
+}
+
+span.nl-highlight-mark::before {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  content: '\f005';
+  font-size: 0.55em;
+  position: absolute;
+  left: -0.15em;
+  top: -0.65em;
+  color: rgb(250 204 21);
+  line-height: 1;
+  pointer-events: none;
+}
+
 .nl-comments-aside {
   min-width: 0;
 }
@@ -261,6 +322,12 @@ span.nl-comment-mark:hover {
     font-weight: 700;
     line-height: 1.3;
     margin: 1rem 0 0.4rem;
+  }
+  #nl-print-root .nl-print-export h4 {
+    font-size: 11pt;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0.75rem 0 0.3rem;
   }
   #nl-print-root .nl-print-export p {
     margin: 0 0 0.65rem;

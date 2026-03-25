@@ -622,6 +622,10 @@ export function bindMainInteractions(app) {
         if (id) app.deleteCharacterById(id);
       });
     });
+    main.querySelector('[data-all-chars-pdf]')?.addEventListener('click', async () => {
+      const mod = await import('./export.js');
+      mod.exportAllCharactersPdfPrint(book);
+    });
   }
 
   if (app.state.view === 'character' && app.state.characterId) {
@@ -688,6 +692,10 @@ export function bindMainInteractions(app) {
       app.persist();
       app.state.characterId = null;
       app.setView('characters');
+    });
+    main.querySelector('[data-char-pdf]')?.addEventListener('click', async () => {
+      const mod = await import('./export.js');
+      mod.exportCharacterPdfPrint(book, ch.id);
     });
   }
 
@@ -1329,6 +1337,20 @@ export function bindMainInteractions(app) {
           else if (kind === 'pdf') mod.exportPdfPrint(book);
           else if (kind === 'docx') await mod.exportDocx(book);
           else if (kind === 'epub') await mod.exportEpub(book);
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Error al exportar');
+        }
+      });
+    });
+    main.querySelectorAll('[data-exp-ref]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const kind = btn.getAttribute('data-exp-ref');
+        const mod = await import('./export.js');
+        try {
+          if (kind === 'pdf') mod.exportReferenceBundlePdf(book);
+          else if (kind === 'txt') mod.exportReferenceBundleTxt(book);
+          else if (kind === 'docx') await mod.exportReferenceBundleDocx(book);
+          else if (kind === 'epub') await mod.exportReferenceBundleEpub(book);
         } catch (e) {
           alert(e instanceof Error ? e.message : 'Error al exportar');
         }
