@@ -7,7 +7,8 @@ export {
   renderChaptersList,
   renderChapterEditor,
   renderSceneEditor,
-  renderActsView,
+  renderActsList,
+  renderActEditor,
 } from './ui/views/chapters-scenes.js';
 export { renderCharacterList, renderCharacterForm } from './ui/views/characters.js';
 export { renderTimelineMerged, renderExtrasList, renderExtraEditor } from './ui/views/timeline-extras.js';
@@ -16,7 +17,8 @@ export {
   renderAppSettingsPanel,
   renderNotesList,
   renderNoteEditor,
-  renderHighlights,
+  renderHighlightsList,
+  renderHighlightEditor,
 } from './ui/views/guide-settings-notes.js';
 export { renderAnalysisPanel } from './ui/views/analysis.js';
 export {

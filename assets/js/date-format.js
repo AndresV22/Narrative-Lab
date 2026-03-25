@@ -42,3 +42,40 @@ export function normalizeDateLabelIfNumeric(label) {
   if (!iso) return label;
   return isoDateToDisplay(iso);
 }
+
+/**
+ * Fecha en DD/MM/AAAA (solo día; si es ISO con hora, usa la parte local del instante).
+ * @param {string|Date} isoOrDate ISO `YYYY-MM-DD`, ISO datetime, o `Date`
+ * @returns {string}
+ */
+export function formatDateDDMMYYYY(isoOrDate) {
+  if (isoOrDate == null || isoOrDate === '') return '';
+  if (isoOrDate instanceof Date) {
+    if (Number.isNaN(isoOrDate.getTime())) return '';
+    const d = String(isoOrDate.getDate()).padStart(2, '0');
+    const m = String(isoOrDate.getMonth() + 1).padStart(2, '0');
+    const y = isoOrDate.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  const s = String(isoOrDate).trim();
+  const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) return `${ymd[3]}/${ymd[2]}/${ymd[1]}`;
+  const t = Date.parse(s);
+  if (!Number.isNaN(t)) return formatDateDDMMYYYY(new Date(t));
+  return '';
+}
+
+/**
+ * Fecha y hora: DD/MM/AAAA HH:mm (hora local).
+ * @param {string} iso ISO datetime
+ * @returns {string}
+ */
+export function formatDateTimeShort(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const datePart = formatDateDDMMYYYY(d);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${datePart} ${hh}:${mm}`;
+}

@@ -3,7 +3,9 @@
  */
 
 import { escapeHtml } from '../../utils.js';
+import { formatDateDDMMYYYY } from '../../date-format.js';
 import { toolbarHtml } from '../../editor.js';
+import { NOVEL_CATEGORY_OPTIONS, NOVEL_CATEGORY_OTHER } from '../../book-categories.js';
 
 export function wrapEditorSection(title, _field) {
   return `
@@ -28,15 +30,26 @@ export function renderBookSettings(book) {
   const createdRaw = book.createdAt || `${book.date}T12:00:00.000Z`;
   const createdLabel = (() => {
     try {
-      return new Date(createdRaw).toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
+      const d = new Date(createdRaw);
+      if (Number.isNaN(d.getTime())) return book.date || '—';
+      return formatDateDDMMYYYY(d);
     } catch {
       return book.date || '—';
     }
   })();
+  const presetCats = new Set(NOVEL_CATEGORY_OPTIONS.filter((c) => c !== NOVEL_CATEGORY_OTHER));
+  const isCategoryOther = Boolean(book.category && !presetCats.has(book.category));
+  const categoryCustomValue = isCategoryOther ? book.category : '';
+  const categoryOptionsHtml = [
+    '<option value="">—</option>',
+    ...NOVEL_CATEGORY_OPTIONS.map((c) => {
+      const sel =
+        (!isCategoryOther && book.category === c) || (isCategoryOther && c === NOVEL_CATEGORY_OTHER)
+          ? ' selected'
+          : '';
+      return `<option value="${escapeHtml(c)}"${sel}>${escapeHtml(c)}</option>`;
+    }),
+  ].join('');
   return `
     <div class="max-w-3xl mx-auto p-6 space-y-6">
       <h2 class="text-lg font-semibold text-white">Metadatos</h2>
@@ -55,9 +68,10 @@ export function renderBookSettings(book) {
           <p class="text-sm text-slate-300 py-2">${escapeHtml(createdLabel)}</p>
           <p class="text-[11px] text-nl-muted">Se asigna automáticamente al crear el libro.</p>
         </div>
-        <div class="space-y-1">
+        <div class="space-y-1 md:col-span-2">
           <label class="block text-xs text-nl-muted">Categoría</label>
-          <input data-f="category" class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm" value="${escapeHtml(book.category)}" />
+          <select data-f="category-sel" class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm">${categoryOptionsHtml}</select>
+          <input data-f="category-custom" placeholder="Describe la categoría" class="mt-2 w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm ${isCategoryOther ? '' : 'hidden'}" value="${escapeHtml(categoryCustomValue)}" />
         </div>
         <div class="space-y-1">
           <label class="block text-xs text-nl-muted">Tipo de narrador</label>

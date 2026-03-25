@@ -63,6 +63,13 @@
  */
 
 /**
+ * @typedef {Object} WorldRule
+ * @property {string} id
+ * @property {string} title
+ * @property {string} content
+ */
+
+/**
  * @typedef {Object} Act
  * @property {string} id
  * @property {string} title
@@ -120,6 +127,7 @@
  * @property {string} synopsis
  * @property {string} historicalContext
  * @property {string} worldRules
+ * @property {WorldRule[]} rules
  * @property {string} coverImageDataUrl
  * @property {string} prologue
  * @property {string} epilogue

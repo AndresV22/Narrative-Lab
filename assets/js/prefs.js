@@ -2,6 +2,8 @@
  * Preferencias locales (localStorage) — Narrative Lab
  */
 
+import { formatDateTimeShort } from './date-format.js';
+
 const KEY_AUTOSAVE = 'nl_autosave_ms';
 const KEY_PROGRESS = 'nl_progress_mode';
 const KEY_LAST_EXPORT = 'nl_last_export_iso';
@@ -83,7 +85,7 @@ export function shouldShowExportReminder() {
 export function exportReminderSummaryLine() {
   const iso = getLastExportIso();
   if (!iso) return 'No hay registro de exportación en este dispositivo.';
-  return `Última copia registrada: ${new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}.`;
+  return `Última copia registrada: ${formatDateTimeShort(iso)}.`;
 }
 
 /**

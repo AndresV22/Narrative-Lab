@@ -11,6 +11,7 @@ import {
   createSnapshot,
   createAct,
   createExtraBlock,
+  createWorldRule,
   createEmptyAuthorProfile,
 } from './models.js';
 import { configureAutosaveDelay } from './storage.js';
@@ -44,11 +45,13 @@ import {
   renderTimelineMerged,
   renderExtrasList,
   renderExtraEditor,
-  renderActsView,
+  renderActsList,
+  renderActEditor,
   renderAppSettingsPanel,
   renderNotesList,
   renderNoteEditor,
-  renderHighlights,
+  renderHighlightsList,
+  renderHighlightEditor,
   renderAnalysisPanel,
   renderGraphHost,
   renderSnapshots,
@@ -58,7 +61,9 @@ import {
 } from './ui-views.js';
 import { renderLibraryDashboard } from './ui/views/library-dashboard.js';
 import { renderAuthorProfileForm } from './ui/views/author-profile.js';
-import { normalizeDateLabelIfNumeric, isoDateToDisplay, displayDateToIso } from './date-format.js';
+import { renderWorldRulesList, renderWorldRuleEditor } from './ui/views/world-rules.js';
+import { NOVEL_CATEGORY_OTHER } from './book-categories.js';
+import { isoDateToDisplay, displayDateToIso } from './date-format.js';
 
 /**
  * @param {HTMLElement} main
@@ -67,6 +72,33 @@ import { normalizeDateLabelIfNumeric, isoDateToDisplay, displayDateToIso } from 
 function gv(main, field) {
   const el = main.querySelector(`[data-f="${field}"]`);
   return el && 'value' in el ? String(/** @type {HTMLInputElement} */ (el).value) : '';
+}
+
+/**
+ * Aplica al acto el título, descripción y asignación de capítulos desde el formulario.
+ * @param {import('./types.js').Book} book
+ * @param {import('./types.js').Act} act
+ * @param {HTMLElement} main
+ */
+function syncActFromForm(book, act, main) {
+  const titleEl = main.querySelector(`[data-act-title="${act.id}"]`);
+  const descEl = main.querySelector(`[data-act-desc="${act.id}"]`);
+  if (titleEl && 'value' in titleEl) act.title = String(/** @type {HTMLInputElement} */ (titleEl).value);
+  if (descEl && 'value' in descEl) act.description = String(/** @type {HTMLTextAreaElement} */ (descEl).value);
+  for (const ch of sortByOrder(book.chapters || [], 'order')) {
+    const cb = main.querySelector(`input[data-act-ch="${act.id}"][data-ch-id="${ch.id}"]`);
+    const checked = !!(cb && /** @type {HTMLInputElement} */ (cb).checked);
+    for (const other of book.acts || []) {
+      if (other.id === act.id) continue;
+      other.chapterIds = (other.chapterIds || []).filter((id) => id !== ch.id);
+    }
+    if (!act.chapterIds) act.chapterIds = [];
+    if (checked) {
+      if (!act.chapterIds.includes(ch.id)) act.chapterIds.push(ch.id);
+    } else {
+      act.chapterIds = act.chapterIds.filter((id) => id !== ch.id);
+    }
+  }
 }
 
 /**
@@ -113,6 +145,11 @@ function bindBookSettings(main, app) {
     });
   });
   main.querySelector('[data-go-author-profile]')?.addEventListener('click', () => app.openAuthorProfile());
+  main.querySelector('[data-f="category-sel"]')?.addEventListener('change', (e) => {
+    const v = /** @type {HTMLSelectElement} */ (e.target).value;
+    const customEl = main.querySelector('[data-f="category-custom"]');
+    if (customEl) customEl.classList.toggle('hidden', v !== NOVEL_CATEGORY_OTHER);
+  });
   main.querySelector('[data-save-meta]')?.addEventListener('click', () => {
     const book = app.getCurrentBook();
     if (!book || !app.workspace) return;
@@ -120,7 +157,9 @@ function bindBookSettings(main, app) {
     book.name = gv(main, 'name');
     book.author = String(ap.name || '').trim();
     if (book.createdAt) book.date = book.createdAt.slice(0, 10);
-    book.category = gv(main, 'category');
+    const catSel = gv(main, 'category-sel');
+    const catCustom = gv(main, 'category-custom').trim();
+    book.category = catSel === NOVEL_CATEGORY_OTHER ? catCustom : catSel;
     book.narratorType = gv(main, 'narratorType');
     book.status = gv(main, 'status');
     book.wordGoal = parseInt(gv(main, 'wordGoal'), 10) || 0;
@@ -373,8 +412,18 @@ export function renderMain(app) {
     return;
   }
   if (v === 'worldRules') {
-    main.innerHTML = wrapEditorSection('Reglas del mundo', 'worldRules');
-    app.attachEditor(main.querySelector('[data-ed]'), 'worldRules', null);
+    if (app.state.worldRuleId) {
+      const rule = book.rules?.find((x) => x.id === app.state.worldRuleId);
+      if (!rule) {
+        app.state.worldRuleId = null;
+        app.refresh();
+        return;
+      }
+      main.innerHTML = renderWorldRuleEditor(rule);
+      app.attachEditor(main.querySelector('[data-ed-world-rule]'), 'worldRule', rule.id);
+      return;
+    }
+    main.innerHTML = renderWorldRulesList(book);
     return;
   }
   if (v === 'prologue') {
@@ -403,7 +452,17 @@ export function renderMain(app) {
     return;
   }
   if (v === 'acts') {
-    main.innerHTML = renderActsView(book, app);
+    if (app.state.actId) {
+      const act = book.acts?.find((a) => a.id === app.state.actId);
+      if (!act) {
+        app.state.actId = null;
+        app.refresh();
+        return;
+      }
+      main.innerHTML = renderActEditor(book, act);
+      return;
+    }
+    main.innerHTML = renderActsList(book);
     return;
   }
   if (v === 'appSettings') {
@@ -470,7 +529,17 @@ export function renderMain(app) {
     return;
   }
   if (v === 'highlights') {
-    main.innerHTML = renderHighlights(book, app);
+    if (app.state.highlightId) {
+      const hl = book.highlights?.find((x) => x.id === app.state.highlightId);
+      if (!hl) {
+        app.state.highlightId = null;
+        app.refresh();
+        return;
+      }
+      main.innerHTML = renderHighlightEditor(book, hl);
+      return;
+    }
+    main.innerHTML = renderHighlightsList(book);
     return;
   }
   if (v === 'analysis') {
@@ -678,21 +747,16 @@ export function bindMainInteractions(app) {
     if (selId) {
       const ev = book.events.find((e) => e.id === selId);
       if (ev) {
-        const dateTxt = /** @type {HTMLInputElement|null} */ (main.querySelector(`[data-ev-date="${ev.id}"]`));
-        const dateCal = /** @type {HTMLInputElement|null} */ (main.querySelector(`[data-ev-date-cal="${ev.id}"]`));
-        if (dateTxt && dateCal) {
-          const iso = displayDateToIso(dateTxt.value);
-          if (iso) dateCal.value = iso;
-          dateCal.addEventListener('change', () => {
-            const v = dateCal.value;
-            if (v) dateTxt.value = isoDateToDisplay(v);
-          });
+        const dateIn = /** @type {HTMLInputElement|null} */ (main.querySelector(`[data-ev-date="${ev.id}"]`));
+        if (dateIn) {
+          const iso = displayDateToIso(ev.dateLabel || '');
+          dateIn.value = iso || '';
         }
         main.querySelector(`[data-save-ev="${ev.id}"]`)?.addEventListener('click', () => {
           ev.title = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-title="${ev.id}"]`)).value;
-          let dl = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-date="${ev.id}"]`)).value;
-          dl = normalizeDateLabelIfNumeric(dl);
-          ev.dateLabel = dl;
+          const dateEl = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-date="${ev.id}"]`));
+          const raw = dateEl?.value || '';
+          ev.dateLabel = raw ? isoDateToDisplay(raw) : '';
           const sk = parseInt(
             String(/** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-sort="${ev.id}"]`)).value),
             10
@@ -755,30 +819,97 @@ export function bindMainInteractions(app) {
     }
   }
 
-  if (app.state.view === 'acts') {
+  if (app.state.view === 'worldRules' && !app.state.worldRuleId) {
+    if (!book.rules) book.rules = [];
+    main.querySelector('[data-add-world-rule]')?.addEventListener('click', () => {
+      const r = createWorldRule({ title: 'Nueva regla' });
+      book.rules.push(r);
+      app.persist();
+      app.openWorldRuleEditor(r.id);
+    });
+    main.querySelectorAll('[data-open-world-rule]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-open-world-rule');
+        if (id) app.openWorldRuleEditor(id);
+      });
+    });
+    main.querySelectorAll('[data-del-world-rule]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-del-world-rule');
+        if (id) app.deleteWorldRuleById(id);
+      });
+    });
+  }
+
+  if (app.state.view === 'worldRules' && app.state.worldRuleId) {
+    const rule = book.rules?.find((x) => x.id === app.state.worldRuleId);
+    if (rule) {
+      main.querySelector('[data-back-world-rules]')?.addEventListener('click', () => {
+        app.state.worldRuleId = null;
+        app.refresh();
+      });
+      main.querySelector('[data-world-rule-title]')?.addEventListener('change', (e) => {
+        rule.title = /** @type {HTMLInputElement} */ (e.target).value;
+        app.persist();
+        renderSidebar(app);
+      });
+      main.querySelector('[data-save-world-rule]')?.addEventListener('click', () => {
+        app.persist();
+        app.state.worldRuleId = null;
+        app.refresh();
+      });
+      main.querySelector('[data-del-world-rule-editor]')?.addEventListener('click', () => {
+        app.deleteWorldRuleById(rule.id);
+      });
+    }
+  }
+
+  if (app.state.view === 'acts' && !app.state.actId) {
     main.querySelector('[data-add-act]')?.addEventListener('click', () => {
       const a = createAct({ order: (book.acts || []).length });
       if (!book.acts) book.acts = [];
       book.acts.push(a);
       app.persist();
-      renderMain(app);
-      bindMainInteractions(app);
+      app.openActEditor(a.id);
     });
-    book.acts?.forEach((act) => {
-      main.querySelector(`[data-act-title="${act.id}"]`)?.addEventListener('change', (e) => {
-        act.title = /** @type {HTMLInputElement} */ (e.target).value;
-        app.persist();
+    main.querySelectorAll('[data-open-act]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-open-act');
+        if (id) app.openActEditor(id);
       });
-      main.querySelector(`[data-act-desc="${act.id}"]`)?.addEventListener('change', (e) => {
-        act.description = /** @type {HTMLTextAreaElement} */ (e.target).value;
+    });
+    main.querySelectorAll('[data-del-act]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-del-act');
+        if (!id) return;
+        if (!confirm('¿Eliminar este acto? Los capítulos no se borran.')) return;
+        book.acts = (book.acts || []).filter((a) => a.id !== id);
+        if (app.state.actId === id) app.state.actId = null;
         app.persist();
+        app.refresh();
       });
-      main.querySelector(`[data-del-act="${act.id}"]`)?.addEventListener('click', () => {
+    });
+  }
+
+  if (app.state.view === 'acts' && app.state.actId) {
+    const act = book.acts?.find((a) => a.id === app.state.actId);
+    if (act) {
+      main.querySelector('[data-back-acts]')?.addEventListener('click', () => {
+        app.state.actId = null;
+        app.refresh();
+      });
+      main.querySelector('[data-save-act]')?.addEventListener('click', () => {
+        syncActFromForm(book, act, main);
+        app.persist();
+        app.state.actId = null;
+        app.refresh();
+      });
+      main.querySelector(`[data-del-act-editor="${act.id}"]`)?.addEventListener('click', () => {
         if (!confirm('¿Eliminar este acto? Los capítulos no se borran.')) return;
         book.acts = (book.acts || []).filter((a) => a.id !== act.id);
+        app.state.actId = null;
         app.persist();
-        renderMain(app);
-        bindMainInteractions(app);
+        app.refresh();
       });
       main.querySelectorAll(`[data-act-ch="${act.id}"]`).forEach((cb) => {
         cb.addEventListener('change', () => {
@@ -796,11 +927,9 @@ export function bindMainInteractions(app) {
             act.chapterIds = act.chapterIds.filter((id) => id !== chId);
           }
           app.persist();
-          renderMain(app);
-          bindMainInteractions(app);
         });
       });
-    });
+    }
   }
 
   if (app.state.view === 'notes') {
@@ -848,30 +977,53 @@ export function bindMainInteractions(app) {
     }
   }
 
-  if (app.state.view === 'highlights') {
-    book.highlights.forEach((h) => {
-      main.querySelector(`[data-save-hl="${h.id}"]`)?.addEventListener('click', () => {
-        const desc = main.querySelector(`[data-hl-desc="${h.id}"]`);
-        const sel = main.querySelector(`[data-hl-char="${h.id}"]`);
-        h.description = desc && 'value' in desc ? String(/** @type {HTMLTextAreaElement} */ (desc).value) : '';
-        h.characterId = sel && 'value' in sel ? String(/** @type {HTMLSelectElement} */ (sel).value) : '';
-        app.persist();
-        renderMain(app);
-        bindMainInteractions(app);
-      });
-      main.querySelector(`[data-go-hl="${h.id}"]`)?.addEventListener('click', () => {
-        app.openHighlightSource(h);
+  if (app.state.view === 'highlights' && !app.state.highlightId) {
+    main.querySelectorAll('[data-open-hl]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-open-hl');
+        if (id) app.openHighlightEditor(id);
       });
     });
     main.querySelectorAll('[data-del-hl]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-del-hl');
+        if (!id) return;
+        if (!confirm('¿Eliminar esta frase destacada?')) return;
         book.highlights = book.highlights.filter((x) => x.id !== id);
         app.persist();
         renderMain(app);
         bindMainInteractions(app);
       });
     });
+  }
+
+  if (app.state.view === 'highlights' && app.state.highlightId) {
+    const hl = book.highlights?.find((x) => x.id === app.state.highlightId);
+    if (hl) {
+      main.querySelector('[data-back-highlights]')?.addEventListener('click', () => {
+        app.state.highlightId = null;
+        app.refresh();
+      });
+      main.querySelector(`[data-save-hl="${hl.id}"]`)?.addEventListener('click', () => {
+        const desc = main.querySelector(`[data-hl-desc="${hl.id}"]`);
+        const sel = main.querySelector(`[data-hl-char="${hl.id}"]`);
+        hl.description = desc && 'value' in desc ? String(/** @type {HTMLTextAreaElement} */ (desc).value) : '';
+        hl.characterId = sel && 'value' in sel ? String(/** @type {HTMLSelectElement} */ (sel).value) : '';
+        app.persist();
+        app.state.highlightId = null;
+        app.refresh();
+      });
+      main.querySelector(`[data-go-hl="${hl.id}"]`)?.addEventListener('click', () => {
+        app.openHighlightSource(hl);
+      });
+      main.querySelector(`[data-del-hl="${hl.id}"]`)?.addEventListener('click', () => {
+        if (!confirm('¿Eliminar esta frase destacada?')) return;
+        book.highlights = book.highlights.filter((x) => x.id !== hl.id);
+        app.state.highlightId = null;
+        app.persist();
+        app.refresh();
+      });
+    }
   }
 
   if (app.state.view === 'snapshots') {

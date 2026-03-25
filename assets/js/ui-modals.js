@@ -73,6 +73,7 @@ export function renderSearchModal(app) {
         else if (kind === 'prologue') app.setView('prologue');
         else if (kind === 'historicalContext') app.setView('historicalContext');
         else if (kind === 'worldRules') app.setView('worldRules');
+        else if (kind === 'worldRule' && id) app.openWorldRuleEditor(id);
         else if (kind === 'event') {
           app.state.timelineEventId = id;
           app.setView('timeline');

@@ -5,7 +5,7 @@
 import { normalizeCharacterRole } from './character-roles.js';
 import { uuid, deepClone, stripHtml } from './utils.js';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** @typedef {{ kind: string, id: string }} EntityRef */
 
@@ -96,6 +96,19 @@ export function createExtraBlock(overrides = {}) {
 }
 
 /**
+ * Regla de mundo (contenido enriquecido).
+ * @returns {import('./types.js').WorldRule}
+ */
+export function createWorldRule(overrides = {}) {
+  return {
+    id: uuid(),
+    title: 'Nueva regla',
+    content: '',
+    ...overrides,
+  };
+}
+
+/**
  * Acto narrativo: agrupa capítulos por id.
  * @returns {import('./types.js').Act}
  */
@@ -169,6 +182,7 @@ export function createEmptyBook(overrides = {}) {
     synopsis: '',
     historicalContext: '',
     worldRules: '',
+    rules: [],
     coverImageDataUrl: '',
     prologue: '',
     epilogue: '',
@@ -232,7 +246,15 @@ export function normalizeBook(raw) {
     status: typeof b.status === 'string' ? b.status : 'Borrador',
     synopsis: typeof b.synopsis === 'string' ? b.synopsis : '',
     historicalContext: typeof b.historicalContext === 'string' ? b.historicalContext : '',
-    worldRules: typeof b.worldRules === 'string' ? b.worldRules : '',
+    rules: (() => {
+      const wrLegacy = typeof b.worldRules === 'string' ? b.worldRules : '';
+      let arr = Array.isArray(b.rules) ? b.rules.map(normalizeWorldRule) : [];
+      if (arr.length === 0 && stripHtml(wrLegacy).trim()) {
+        arr = [createWorldRule({ title: 'Reglas del mundo', content: wrLegacy })];
+      }
+      return arr;
+    })(),
+    worldRules: '',
     coverImageDataUrl: typeof b.coverImageDataUrl === 'string' ? b.coverImageDataUrl : '',
     prologue: typeof b.prologue === 'string' ? b.prologue : '',
     epilogue: typeof b.epilogue === 'string' ? b.epilogue : '',
@@ -265,6 +287,18 @@ function normalizeExtraBlock(raw) {
   return createExtraBlock({
     id: typeof x.id === 'string' ? x.id : uuid(),
     title: typeof x.title === 'string' ? x.title : 'Extra',
+    content: typeof x.content === 'string' ? x.content : '',
+  });
+}
+
+/**
+ * @param {unknown} raw
+ */
+function normalizeWorldRule(raw) {
+  const x = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
+  return createWorldRule({
+    id: typeof x.id === 'string' ? x.id : uuid(),
+    title: typeof x.title === 'string' ? x.title : 'Regla',
     content: typeof x.content === 'string' ? x.content : '',
   });
 }

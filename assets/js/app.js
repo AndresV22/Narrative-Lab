@@ -50,11 +50,14 @@ import { inferChapterIdForSceneHighlight } from './highlight-source.js';
  * @property {string|null} [characterId]
  * @property {string|null} [noteId]
  * @property {string|null} [extraId]
+ * @property {string|null} [worldRuleId]
  * @property {boolean} afterNewBookMeta
  * @property {boolean} rightOpen
  * @property {'characters'|'chars_chapters'|'all'} [graphMode]
  * @property {string|null} [guideArticleId]
  * @property {string|null} [timelineEventId]
+ * @property {string|null} [highlightId]
+ * @property {string|null} [actId]
  */
 
 export class App {
@@ -70,11 +73,14 @@ export class App {
       characterId: null,
       noteId: null,
       extraId: null,
+      worldRuleId: null,
       afterNewBookMeta: false,
       rightOpen: true,
       graphMode: 'chars_chapters',
       guideArticleId: null,
       timelineEventId: null,
+      highlightId: null,
+      actId: null,
     };
     /** @type {ReturnType<typeof setInterval> | null} */
     this.autoSnapshotTimer = null;
@@ -169,6 +175,10 @@ export class App {
     if (kind === 'synopsis') initial = book.synopsis || '';
     else if (kind === 'historicalContext') initial = book.historicalContext || '';
     else if (kind === 'worldRules') initial = book.worldRules || '';
+    else if (kind === 'worldRule' && id) {
+      const r = book.rules?.find((x) => x.id === id);
+      initial = r?.content || '';
+    }
     else if (kind === 'prologue') initial = book.prologue || '';
     else if (kind === 'epilogue') initial = book.epilogue || '';
     else if (kind === 'extras') initial = book.extras || '';
@@ -230,6 +240,10 @@ export class App {
     if (kind === 'synopsis') book.synopsis = html;
     else if (kind === 'historicalContext') book.historicalContext = html;
     else if (kind === 'worldRules') book.worldRules = html;
+    else if (kind === 'worldRule' && id) {
+      const r = book.rules?.find((x) => x.id === id);
+      if (r) r.content = html;
+    }
     else if (kind === 'prologue') book.prologue = html;
     else if (kind === 'epilogue') book.epilogue = html;
     else if (kind === 'extras') book.extras = html;
@@ -268,6 +282,7 @@ export class App {
     /** @type {Record<string, string>} */
     const extra = { description: '', characterId: '', chapterId: '' };
     if (kind === 'scene' && chapterId) extra.chapterId = chapterId;
+    if (kind === 'worldRule' && !id) return;
     book.highlights.push(createHighlight(book.id, kind, String(sid), text, extra));
     this.persist();
   }
@@ -287,6 +302,12 @@ export class App {
     }
     if (kind === 'historicalContext') {
       this.setView('historicalContext');
+      return;
+    }
+    if (kind === 'worldRule' && h.sourceId) {
+      this.state.worldRuleId = h.sourceId;
+      this.state.view = 'worldRules';
+      this.refresh();
       return;
     }
     if (kind === 'worldRules') {
@@ -329,6 +350,9 @@ export class App {
 
   /** Vista de biblioteca (dashboard). */
   goLibraryHome() {
+    this.state.worldRuleId = null;
+    this.state.highlightId = null;
+    this.state.actId = null;
     this.state.view = 'library';
     this.refresh();
   }
@@ -336,6 +360,9 @@ export class App {
   /** Perfil de autor (workspace); no cierra el libro abierto. */
   openAuthorProfile() {
     this.state.extraId = null;
+    this.state.worldRuleId = null;
+    this.state.highlightId = null;
+    this.state.actId = null;
     this.state.guideArticleId = null;
     this.state.timelineEventId = null;
     this.state.view = 'authorProfile';
@@ -351,6 +378,9 @@ export class App {
       return;
     }
     this.state.extraId = null;
+    this.state.worldRuleId = null;
+    this.state.highlightId = null;
+    this.state.actId = null;
     if (view !== 'writingGuide') {
       this.state.guideArticleId = null;
     }
@@ -376,6 +406,9 @@ export class App {
    */
   openWritingGuide(articleId = null) {
     this.state.extraId = null;
+    this.state.worldRuleId = null;
+    this.state.highlightId = null;
+    this.state.actId = null;
     this.state.guideArticleId = articleId;
     this.state.view = 'writingGuide';
     this.state.characterId = null;
@@ -393,6 +426,33 @@ export class App {
   openExtraEditor(id) {
     this.state.view = 'extras';
     this.state.extraId = id;
+    this.refresh();
+  }
+
+  /**
+   * @param {string} id
+   */
+  openWorldRuleEditor(id) {
+    this.state.view = 'worldRules';
+    this.state.worldRuleId = id;
+    this.refresh();
+  }
+
+  /**
+   * @param {string} id
+   */
+  openHighlightEditor(id) {
+    this.state.view = 'highlights';
+    this.state.highlightId = id;
+    this.refresh();
+  }
+
+  /**
+   * @param {string} id
+   */
+  openActEditor(id) {
+    this.state.view = 'acts';
+    this.state.actId = id;
     this.refresh();
   }
 
@@ -447,6 +507,9 @@ export class App {
     this.state.sceneId = null;
     this.state.characterId = null;
     this.state.noteId = null;
+    this.state.worldRuleId = null;
+    this.state.highlightId = null;
+    this.state.actId = null;
     this.state.timelineEventId = null;
     this.state.guideArticleId = null;
     this.refresh();
@@ -455,6 +518,7 @@ export class App {
   closeBook() {
     this.state.bookId = null;
     this.state.view = 'library';
+    this.state.actId = null;
     this.disposeEditor();
     this.refresh();
   }
@@ -559,6 +623,19 @@ export class App {
     if (!confirm('¿Eliminar este extra?')) return;
     book.extraBlocks = (book.extraBlocks || []).filter((e) => e.id !== extraId);
     if (this.state.extraId === extraId) this.state.extraId = null;
+    this.persist();
+    this.refresh();
+  }
+
+  /**
+   * @param {string} ruleId
+   */
+  deleteWorldRuleById(ruleId) {
+    const book = this.getCurrentBook();
+    if (!book) return;
+    if (!confirm('¿Eliminar esta regla?')) return;
+    book.rules = (book.rules || []).filter((r) => r.id !== ruleId);
+    if (this.state.worldRuleId === ruleId) this.state.worldRuleId = null;
     this.persist();
     this.refresh();
   }

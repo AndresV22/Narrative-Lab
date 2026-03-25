@@ -4,6 +4,7 @@
 
 import { escapeHtml } from '../../utils.js';
 import { ageFromBirthDate } from '../../author-age.js';
+import { isoDateToDisplay } from '../../date-format.js';
 
 /**
  * @param {import('../../types.js').AuthorProfile} profile
@@ -12,6 +13,10 @@ export function renderAuthorProfileForm(profile) {
   const age = ageFromBirthDate(profile.birthDate || '');
   const ageLine =
     age !== null ? `<span class="text-slate-300 tabular-nums">${age} años</span>` : '—';
+  const birthDisplay = profile.birthDate ? isoDateToDisplay(profile.birthDate) : '';
+  const birthFormatLine = birthDisplay
+    ? `<p class="text-xs text-nl-muted mt-1">Formato: <span class="text-slate-400 tabular-nums">${escapeHtml(birthDisplay)}</span> (DD/MM/AAAA)</p>`
+    : '';
   const hasPhoto = !!profile.imageDataUrl;
   const preview = hasPhoto
     ? `<img src="${profile.imageDataUrl}" alt="" class="w-32 h-32 rounded-full object-cover border border-nl-border"/>`
@@ -33,7 +38,8 @@ export function renderAuthorProfileForm(profile) {
           </div>
           <div>
             <label class="block text-xs text-nl-muted mb-1">Fecha de nacimiento</label>
-            <input type="date" data-f="author-birth" class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm" value="${escapeHtml(profile.birthDate)}" />
+            <input type="date" data-f="author-birth" lang="es" class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm" value="${escapeHtml(profile.birthDate)}" />
+            ${birthFormatLine}
             <p class="text-xs text-nl-muted mt-1">Edad: ${ageLine}</p>
           </div>
           <div>

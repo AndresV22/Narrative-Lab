@@ -3,8 +3,21 @@
  */
 
 import { computeWordStats } from './export.js';
+import { displayDateToIso, normalizeDateLabelIfNumeric } from './date-format.js';
 import { listRelationships } from './relations.js';
 import { sortByOrder, wordCountFromHtml } from './utils.js';
+
+/**
+ * Convierte etiqueta de evento a ISO comparable (solo DD/MM/AAAA válidos).
+ * @param {string} [label]
+ * @returns {string|null}
+ */
+function parseComparableEventDateLabel(label) {
+  const s = String(label || '').trim();
+  if (!s) return null;
+  const normalized = normalizeDateLabelIfNumeric(s);
+  return displayDateToIso(normalized);
+}
 
 /** Palabras por minuto para tiempo de lectura estimado */
 const READING_WPM = 200;
@@ -226,6 +239,28 @@ export function getTimelineConflicts(book) {
       });
     }
   }
+
+  const sortedByLine = sortByOrder(events.slice(), 'sortKey');
+  for (let i = 0; i < sortedByLine.length - 1; i++) {
+    const prevEv = sortedByLine[i];
+    const nextEv = sortedByLine[i + 1];
+    const isoPrev = parseComparableEventDateLabel(prevEv.dateLabel);
+    const isoNext = parseComparableEventDateLabel(nextEv.dateLabel);
+    if (!isoPrev || !isoNext) continue;
+    if (isoNext < isoPrev) {
+      const tPrev = prevEv.title || 'Sin título';
+      const tNext = nextEv.title || 'Sin título';
+      const dPrev = prevEv.dateLabel?.trim() || isoPrev;
+      const dNext = nextEv.dateLabel?.trim() || isoNext;
+      out.push({
+        severity: 'warning',
+        code: 'event_date_order_mismatch',
+        message: `Orden vs fecha: «${tNext}» va después de «${tPrev}» en la línea, pero su fecha (${dNext}) es anterior a la de «${tPrev}» (${dPrev}).`,
+        eventId: nextEv.id,
+      });
+    }
+  }
+
   return out;
 }
 
@@ -289,5 +324,7 @@ export function getBookHealth(book) {
  * @returns {number}
  */
 export function countWarningIssues(book) {
-  return detectNarrativeIssues(book).filter((i) => i.severity === 'warning').length;
+  const n = detectNarrativeIssues(book).filter((i) => i.severity === 'warning').length;
+  const t = getTimelineConflicts(book).filter((x) => x.severity === 'warning').length;
+  return n + t;
 }

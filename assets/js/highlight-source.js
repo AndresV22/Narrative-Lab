@@ -26,7 +26,11 @@ export function formatHighlightSource(book, h) {
   const id = h.sourceId || '';
   if (kind === 'synopsis') return 'Sinopsis';
   if (kind === 'historicalContext') return 'Contexto histórico';
-  if (kind === 'worldRules') return 'Reglas del mundo';
+  if (kind === 'worldRules') return 'Reglas del mundo (legacy)';
+  if (kind === 'worldRule') {
+    const r = book.rules?.find((x) => x.id === id);
+    return r ? `Regla: ${r.title || 'Sin título'}` : 'Regla';
+  }
   if (kind === 'prologue') return 'Prólogo';
   if (kind === 'epilogue') return 'Epílogo';
   if (kind === 'extras') return 'Extras (legacy)';
@@ -61,7 +65,7 @@ export function formatHighlightSource(book, h) {
 export function canNavigateHighlightSource(book, h) {
   const kind = h.sourceKind || '';
   if (kind === 'scene') return !!(h.sourceId && inferChapterIdForSceneHighlight(book, h));
-  if (kind === 'chapter' || kind === 'note' || kind === 'extra') return !!h.sourceId;
+  if (kind === 'chapter' || kind === 'note' || kind === 'extra' || kind === 'worldRule') return !!h.sourceId;
   if (
     kind === 'synopsis' ||
     kind === 'historicalContext' ||

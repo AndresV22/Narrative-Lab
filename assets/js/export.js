@@ -410,6 +410,12 @@ export function computeWordStats(book) {
   total += wordCountFromHtml(book.synopsis || '');
   total += wordCountFromHtml(book.prologue || '');
   total += wordCountFromHtml(book.epilogue || '');
+  for (const rule of book.rules || []) {
+    total += wordCountFromHtml(rule.content || '');
+  }
+  if (!(book.rules || []).length) {
+    total += wordCountFromHtml(book.worldRules || '');
+  }
   for (const eb of book.extraBlocks || []) {
     total += wordCountFromHtml(eb.content || '');
   }

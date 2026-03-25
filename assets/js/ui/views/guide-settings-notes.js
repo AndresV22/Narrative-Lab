@@ -173,44 +173,78 @@ export function renderNoteEditor(note, _app) {
   `;
 }
 
-export function renderHighlights(book, _app) {
+/**
+ * Lista compacta; el editor completo está en {@link renderHighlightEditor}.
+ * @param {import('../../types.js').Book} book
+ */
+export function renderHighlightsList(book) {
+  const list = book.highlights || [];
   return `
     <div class="max-w-3xl mx-auto p-6">
-      <h2 class="text-lg font-semibold text-white mb-6">Frases destacadas</h2>
-      <ul class="space-y-4">
-        ${book.highlights.map((h) => {
-          const src = formatHighlightSource(book, h);
-          const canGo = canNavigateHighlightSource(book, h);
-          const sel = String(h.characterId || '');
-          const charOptions = (book.characters || [])
-            .map(
-              (c) =>
-                `<option value="${escapeHtml(c.id)}" ${sel === c.id ? 'selected' : ''}>${escapeHtml(c.name || 'Sin nombre')}</option>`
-            )
-            .join('');
-          return `
-          <li class="p-4 rounded-lg border border-nl-border bg-nl-surface space-y-3" data-hl-row="${escapeHtml(h.id)}">
-            <blockquote class="text-slate-200 text-sm border-l-2 border-indigo-500/50 pl-3">${escapeHtml(h.excerpt)}</blockquote>
-            <p class="text-[11px] text-nl-muted">Origen: <span class="text-slate-400">${escapeHtml(src)}</span></p>
-            <div class="space-y-1">
-              <label class="text-[10px] text-nl-muted">Descripción / nota</label>
-              <textarea data-hl-desc="${escapeHtml(h.id)}" rows="2" class="w-full text-sm bg-nl-bg border border-nl-border rounded px-2 py-1.5 text-slate-200">${escapeHtml(h.description || '')}</textarea>
-            </div>
-            <div class="space-y-1">
-              <label class="text-[10px] text-nl-muted">Personaje (opcional)</label>
-              <select data-hl-char="${escapeHtml(h.id)}" class="w-full max-w-md bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm text-slate-200">
-                <option value="">— Ninguno —</option>
-                ${charOptions}
-              </select>
-            </div>
-            <div class="flex flex-wrap gap-2 items-center">
-              <button type="button" data-save-hl="${escapeHtml(h.id)}" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs hover:bg-indigo-500">Guardar</button>
-              <button type="button" data-go-hl="${escapeHtml(h.id)}" class="px-3 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised disabled:opacity-40 disabled:pointer-events-none" ${canGo ? '' : 'disabled'}>Ir al origen</button>
-              <button type="button" data-del-hl="${escapeHtml(h.id)}" class="text-xs text-red-400 hover:text-red-300 ml-auto">Eliminar</button>
-            </div>
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h2 class="text-lg font-semibold text-white">Frases destacadas</h2>
+        <p class="text-xs text-nl-muted sm:max-w-sm">Pulsa una frase para editarla. En el editor usa «Destacar selección» para añadir más.</p>
+      </div>
+      <ul class="space-y-2">
+        ${list.length
+          ? list
+              .map((h) => {
+                const src = formatHighlightSource(book, h);
+                const preview = (h.excerpt || '').slice(0, 160) + ((h.excerpt || '').length > 160 ? '…' : '');
+                return `
+          <li class="flex gap-2 items-stretch">
+            <button type="button" data-open-hl="${escapeHtml(h.id)}" class="flex-1 min-w-0 text-left p-3 rounded-lg border border-nl-border bg-nl-surface hover:border-indigo-500/40 transition-colors">
+              <blockquote class="text-slate-200 text-sm border-l-2 border-indigo-500/50 pl-3 line-clamp-3">${escapeHtml(preview || '(vacío)')}</blockquote>
+              <p class="text-[11px] text-nl-muted mt-2 truncate">Origen: <span class="text-slate-400">${escapeHtml(src)}</span></p>
+            </button>
+            <button type="button" data-del-hl="${escapeHtml(h.id)}" class="shrink-0 px-3 rounded-lg border border-nl-border text-red-400 hover:bg-red-500/10 text-sm" title="Eliminar">✕</button>
           </li>`;
-        }).join('') || '<li class="text-nl-muted text-sm">Selecciona texto en el editor y usa «Destacar selección».</li>'}
+              })
+              .join('')
+          : '<li class="text-nl-muted text-sm">Selecciona texto en el editor y usa «Destacar selección».</li>'}
       </ul>
+    </div>
+  `;
+}
+
+/**
+ * @param {import('../../types.js').Book} book
+ * @param {import('../../types.js').Highlight} h
+ */
+export function renderHighlightEditor(book, h) {
+  const src = formatHighlightSource(book, h);
+  const canGo = canNavigateHighlightSource(book, h);
+  const sel = String(h.characterId || '');
+  const charOptions = (book.characters || [])
+    .map(
+      (c) =>
+        `<option value="${escapeHtml(c.id)}" ${sel === c.id ? 'selected' : ''}>${escapeHtml(c.name || 'Sin nombre')}</option>`
+    )
+    .join('');
+  return `
+    <div class="max-w-3xl mx-auto p-6 space-y-4">
+      <button type="button" data-back-highlights class="text-sm text-indigo-400 hover:text-indigo-300">← Frases destacadas</button>
+      <h2 class="text-lg font-semibold text-white">Editar frase</h2>
+      <div class="p-4 rounded-lg border border-nl-border bg-nl-surface space-y-3">
+        <blockquote class="text-slate-200 text-sm border-l-2 border-indigo-500/50 pl-3">${escapeHtml(h.excerpt)}</blockquote>
+        <p class="text-[11px] text-nl-muted">Origen: <span class="text-slate-400">${escapeHtml(src)}</span></p>
+        <div class="space-y-1">
+          <label class="text-[10px] text-nl-muted">Descripción / nota</label>
+          <textarea data-hl-desc="${escapeHtml(h.id)}" rows="3" class="w-full text-sm bg-nl-bg border border-nl-border rounded px-2 py-1.5 text-slate-200">${escapeHtml(h.description || '')}</textarea>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] text-nl-muted">Personaje (opcional)</label>
+          <select data-hl-char="${escapeHtml(h.id)}" class="w-full max-w-md bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm text-slate-200">
+            <option value="">— Ninguno —</option>
+            ${charOptions}
+          </select>
+        </div>
+        <div class="flex flex-wrap gap-2 items-center pt-1">
+          <button type="button" data-save-hl="${escapeHtml(h.id)}" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs hover:bg-indigo-500">Guardar</button>
+          <button type="button" data-go-hl="${escapeHtml(h.id)}" class="px-3 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised disabled:opacity-40 disabled:pointer-events-none" ${canGo ? '' : 'disabled'}>Ir al origen</button>
+          <button type="button" data-del-hl="${escapeHtml(h.id)}" class="text-xs text-red-400 hover:text-red-300 ml-auto">Eliminar</button>
+        </div>
+      </div>
     </div>
   `;
 }

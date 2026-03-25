@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml, sortByOrder } from '../../utils.js';
+import { formatDateTimeShort } from '../../date-format.js';
 import { listRelationships, CHARACTER_LINK_ROLE_OPTIONS } from '../../relations.js';
 
 /**
@@ -49,7 +50,7 @@ function relTypeLabel(t) {
  */
 function formatSnapshotDate(iso) {
   try {
-    return new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+    return formatDateTimeShort(iso);
   } catch {
     return String(iso || '');
   }

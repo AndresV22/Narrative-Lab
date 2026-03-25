@@ -15,6 +15,7 @@ import { createSnapshot } from './models.js';
 import { computeWordStats } from './export.js';
 import { listRelationships } from './relations.js';
 import { countWarningIssues, getBookStats } from './analysis.js';
+import { formatDateTimeShort } from './date-format.js';
 
 function exportReminderBanner() {
   if (!shouldShowExportReminder()) return '';
@@ -64,7 +65,7 @@ export function mountShell(root, app) {
 export function saveSnapshotFromHeader(app) {
   const book = app.getCurrentBook();
   if (!book) return;
-  const label = `Snapshot ${new Date().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}`;
+  const label = `Snapshot ${formatDateTimeShort(new Date().toISOString())}`;
   const snap = createSnapshot(label, book);
   book.snapshots.unshift(snap);
   app.persist();
@@ -260,6 +261,7 @@ function isBookEditorSurface(app) {
   if (v === 'writingGuide') return false;
   if (v === 'synopsis' || v === 'prologue' || v === 'epilogue') return true;
   if (v === 'extras' && app.state.extraId) return true;
+  if (v === 'worldRules' && app.state.worldRuleId) return true;
   if (v === 'chapter' || v === 'scene' || v === 'note') return true;
   return false;
 }
@@ -277,6 +279,7 @@ export function renderRightPanel(app) {
   const stats = computeWordStats(book);
   const bstats = getBookStats(book);
   const pct = stats.goal > 0 ? Math.min(100, Math.round((stats.total / stats.goal) * 100)) : 0;
+  const pagesEst = stats.total > 0 ? Math.max(1, Math.ceil(stats.total / 300)) : 0;
 
   const rels = listRelationships(book).slice(0, 12);
 
@@ -326,6 +329,11 @@ export function renderRightPanel(app) {
       <h3 class="text-xs font-semibold uppercase tracking-wider text-nl-muted mb-3">Progreso</h3>
       <div class="text-2xl font-semibold text-white tabular-nums">${stats.total.toLocaleString()}</div>
       <div class="text-xs text-nl-muted mt-1">palabras · meta ${stats.goal.toLocaleString()}</div>
+      ${
+        pagesEst > 0
+          ? `<div class="text-xs text-slate-400 mt-2">Estimación: ~${pagesEst.toLocaleString()} páginas (≈300 palabras/página)</div>`
+          : `<div class="text-xs text-nl-muted mt-2">Estimación de páginas: — (añade texto al libro)</div>`
+      }
       <div class="mt-3 h-2 rounded-full bg-nl-raised overflow-hidden">
         <div class="h-full bg-indigo-500 transition-all" style="width:${pct}%"></div>
       </div>

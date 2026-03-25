@@ -6,7 +6,7 @@ import { normalizeSearch, snippet, stripHtml } from './utils.js';
 
 /**
  * @typedef {Object} SearchHit
- * @property {'chapter'|'scene'|'note'|'synopsis'|'prologue'|'event'|'extra'|'historicalContext'|'worldRules'} kind
+ * @property {'chapter'|'scene'|'note'|'synopsis'|'prologue'|'event'|'extra'|'historicalContext'|'worldRules'|'worldRule'} kind
  * @property {string} bookId
  * @property {string} bookName
  * @property {string} id
@@ -67,9 +67,22 @@ export function searchInBook(book, query) {
       bookId: book.id,
       bookName: book.name,
       id: 'worldRules',
-      label: 'Reglas del mundo',
+      label: 'Reglas del mundo (legacy)',
       excerpt: snippet(stripHtml(book.worldRules)),
     });
+  }
+
+  for (const wr of book.rules || []) {
+    if (match(wr.title) || match(wr.content)) {
+      hits.push({
+        kind: 'worldRule',
+        bookId: book.id,
+        bookName: book.name,
+        id: wr.id,
+        label: `Regla: ${wr.title || '(sin título)'}`,
+        excerpt: snippet(stripHtml(wr.title + ' ' + wr.content)),
+      });
+    }
   }
 
   for (const eb of book.extraBlocks || []) {
