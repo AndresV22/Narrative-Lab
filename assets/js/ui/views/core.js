@@ -4,17 +4,14 @@
 
 import { escapeHtml } from '../../utils.js';
 import { formatDateDDMMYYYY } from '../../date-format.js';
-import { toolbarHtml } from '../../editor.js';
+import { editorCardWithHost } from '../../editor.js';
 import { NOVEL_CATEGORY_OPTIONS, NOVEL_CATEGORY_OTHER } from '../../book-categories.js';
 
 export function wrapEditorSection(title, _field) {
   return `
     <div class="nl-view nl-view-grow">
       <h2 class="text-lg font-semibold text-white mb-4">${escapeHtml(title)}</h2>
-      <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface flex flex-col flex-1 min-h-0">
-        ${toolbarHtml()}
-        <div data-ed class="nl-editor flex-1 nl-scroll overflow-y-auto"></div>
-      </div>
+      ${editorCardWithHost('data-ed class="nl-editor flex-1 min-h-[12rem]"')}
     </div>
   `;
 }

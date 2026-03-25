@@ -14,9 +14,10 @@ import {
 import {
   createEmptyBook,
   createHighlight,
+  createEditorComment,
   createEmptyAuthorProfile,
 } from './models.js';
-import { debounce } from './utils.js';
+import { debounce, escapeHtml, uuid } from './utils.js';
 import {
   mountShell,
   renderSidebar,
@@ -32,6 +33,13 @@ import {
 } from './ui.js';
 import { showToast } from './toast.js';
 import { RichEditor, bindToolbar, computeEditorRealtimeMetrics } from './editor.js';
+import {
+  editorSourceId,
+  findCommentMarkEl,
+  surroundSelectionWithCommentMark,
+  unwrapCommentMarkInHost,
+} from './editor-helpers.js';
+import { getEditorCommentsPanelOpen, setEditorCommentsPanelOpen } from './prefs.js';
 import {
   downloadWorkspaceJson,
   readJsonFile,
@@ -92,6 +100,10 @@ export class App {
     this.els = null;
     /** @type {RichEditor|null} */
     this.editor = null;
+    /** @type {(() => void) | null} */
+    this._editorToolbarCleanup = null;
+    /** @type {{ kind: string, id: string | null, chapterId: string | null } | null} */
+    this._editorContext = null;
     /** @type {unknown} */
     this.pendingImport = null;
     /** @type {any} */
@@ -152,6 +164,9 @@ export class App {
   }
 
   disposeEditor() {
+    this._editorToolbarCleanup?.();
+    this._editorToolbarCleanup = null;
+    this._editorContext = null;
     if (this.editor) {
       this.editor.destroy();
       this.editor = null;
@@ -220,12 +235,182 @@ export class App {
       }
     });
 
-    const toolbar = el.previousElementSibling;
+    this._editorContext = { kind, id, chapterId };
+    const toolbar =
+      el.closest('.nl-editor-card')?.querySelector('[data-nl-toolbar]') || el.previousElementSibling;
+    this._editorToolbarCleanup?.();
     if (toolbar && toolbar instanceof HTMLElement) {
-      bindToolbar(toolbar, this.editor, {
+      this._editorToolbarCleanup = bindToolbar(toolbar, this.editor, {
         onHighlight: () => this.tryHighlight(kind, id, chapterId),
+        onNewComment: () => this.tryAddEditorComment(kind, id, chapterId),
+        onToggleCommentsPanel: () => this.toggleEditorCommentsPanel(el),
       });
     }
+    this.syncEditorCommentsPanel(el);
+    const aside = el.closest('.nl-editor-card')?.querySelector('[data-nl-comments-aside]');
+    const closeBtn = aside?.querySelector('[data-nl-comments-close]');
+    if (closeBtn && !closeBtn.dataset.nlBound) {
+      closeBtn.dataset.nlBound = '1';
+      closeBtn.addEventListener('click', () => {
+        setEditorCommentsPanelOpen(false);
+        if (aside) {
+          aside.classList.add('hidden');
+          aside.classList.remove('flex');
+        }
+      });
+    }
+  }
+
+  /**
+   * @param {HTMLElement} hostEl
+   */
+  toggleEditorCommentsPanel(hostEl) {
+    const next = !getEditorCommentsPanelOpen();
+    setEditorCommentsPanelOpen(next);
+    const aside = hostEl.closest('.nl-editor-card')?.querySelector('[data-nl-comments-aside]');
+    if (aside) {
+      aside.classList.toggle('hidden', !next);
+      aside.classList.toggle('flex', next);
+    }
+  }
+
+  /**
+   * @param {HTMLElement} hostEl
+   */
+  syncEditorCommentsPanel(hostEl) {
+    const aside = hostEl.closest('.nl-editor-card')?.querySelector('[data-nl-comments-aside]');
+    const list = aside?.querySelector('[data-nl-comments-list]');
+    if (!aside || !list) return;
+    const open = getEditorCommentsPanelOpen();
+    aside.classList.toggle('hidden', !open);
+    aside.classList.toggle('flex', open);
+
+    const book = this.getCurrentBook();
+    const ctx = this._editorContext;
+    if (!book || !ctx) {
+      list.innerHTML = '';
+      return;
+    }
+    const { kind, id, chapterId } = ctx;
+    const sid = editorSourceId(kind, id);
+    const comments = (book.editorComments || []).filter((c) => {
+      if (c.bookId !== book.id || c.sourceKind !== kind || c.sourceId !== sid) return false;
+      if (kind === 'scene' && chapterId && c.chapterId && c.chapterId !== chapterId) return false;
+      return true;
+    });
+
+    list.innerHTML =
+      comments.length === 0
+        ? '<li class="text-xs text-nl-muted p-2">Sin comentarios en este fragmento.</li>'
+        : comments
+            .map((c) => {
+              return `<li class="rounded-lg border border-nl-border p-2 bg-nl-raised/80" data-comment-id="${escapeHtml(c.id)}">
+      <p class="text-slate-300 text-xs whitespace-pre-wrap">${escapeHtml(c.body || '(vacío)')}</p>
+      <div class="flex flex-wrap gap-2 mt-2">
+        <button type="button" class="text-xs text-indigo-400 hover:text-indigo-300" data-comment-goto="${escapeHtml(c.id)}">Ir al texto</button>
+        <button type="button" class="text-xs text-slate-400 hover:text-slate-200" data-comment-edit="${escapeHtml(c.id)}">Editar</button>
+        <button type="button" class="text-xs text-red-400 hover:text-red-300" data-comment-del="${escapeHtml(c.id)}">Eliminar</button>
+      </div>
+    </li>`;
+            })
+            .join('');
+
+    list.querySelectorAll('[data-comment-goto]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cid = btn.getAttribute('data-comment-goto');
+        if (cid) this.scrollToEditorComment(cid);
+      });
+    });
+    list.querySelectorAll('[data-comment-edit]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cid = btn.getAttribute('data-comment-edit');
+        if (cid) this.editEditorComment(cid, hostEl);
+      });
+    });
+    list.querySelectorAll('[data-comment-del]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cid = btn.getAttribute('data-comment-del');
+        if (cid) this.deleteEditorComment(cid, hostEl);
+      });
+    });
+  }
+
+  /**
+   * @param {string} commentId
+   */
+  scrollToEditorComment(commentId) {
+    if (!this.editor) return;
+    const mark = findCommentMarkEl(this.editor.host, commentId);
+    mark?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  /**
+   * @param {string} commentId
+   * @param {HTMLElement} hostEl
+   */
+  editEditorComment(commentId, hostEl) {
+    const book = this.getCurrentBook();
+    if (!book) return;
+    const c = book.editorComments?.find((x) => x.id === commentId);
+    if (!c) return;
+    const next = window.prompt('Editar comentario:', c.body);
+    if (next == null) return;
+    c.body = String(next).trim();
+    if (!c.body) return;
+    c.updatedAt = new Date().toISOString();
+    this.persist();
+    this.syncEditorCommentsPanel(hostEl);
+  }
+
+  /**
+   * @param {string} commentId
+   * @param {HTMLElement} hostEl
+   */
+  deleteEditorComment(commentId, hostEl) {
+    const book = this.getCurrentBook();
+    if (!book || !this.editor) return;
+    if (!window.confirm('¿Eliminar este comentario?')) return;
+    unwrapCommentMarkInHost(this.editor.host, commentId);
+    book.editorComments = (book.editorComments || []).filter((c) => c.id !== commentId);
+    const ctx = this._editorContext;
+    if (ctx) {
+      this.applyEditorHtml(ctx.kind, ctx.id, ctx.chapterId, this.editor.getHtml());
+    }
+    this.persist();
+    this.syncEditorCommentsPanel(hostEl);
+  }
+
+  /**
+   * @param {string} kind
+   * @param {string|null} id
+   * @param {string|null} chapterId
+   */
+  tryAddEditorComment(kind, id, chapterId) {
+    const book = this.getCurrentBook();
+    if (!book || !this.editor) return;
+    const text = this.editor.getSelectedText();
+    if (!text) {
+      alert('Selecciona un fragmento de texto para comentar.');
+      return;
+    }
+    const body = window.prompt('Comentario:');
+    if (body == null || !String(body).trim()) return;
+    const cid = uuid();
+    this.editor.focus();
+    if (!surroundSelectionWithCommentMark(cid)) {
+      alert('No se pudo aplicar el comentario a esta selección.');
+      return;
+    }
+    const sid = editorSourceId(kind, id);
+    const row = createEditorComment(book.id, kind, sid, String(body).trim(), {
+      id: cid,
+      chapterId: kind === 'scene' && chapterId ? chapterId : '',
+    });
+    if (!book.editorComments) book.editorComments = [];
+    book.editorComments.push(row);
+    this.applyEditorHtml(kind, id, chapterId, this.editor.getHtml());
+    this.persist();
+    this.syncEditorCommentsPanel(this.editor.host);
   }
 
   /**

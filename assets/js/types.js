@@ -107,6 +107,19 @@
  */
 
 /**
+ * Comentario en línea en el editor (metadatos; el HTML guarda el span).
+ * @typedef {Object} EditorComment
+ * @property {string} id
+ * @property {string} bookId
+ * @property {string} sourceKind
+ * @property {string} sourceId
+ * @property {string} body
+ * @property {string} createdAt
+ * @property {string} [updatedAt]
+ * @property {string} [chapterId] capítulo padre si sourceKind es escena
+ */
+
+/**
  * @typedef {Object} Snapshot
  * @property {string} id
  * @property {string} label
@@ -140,6 +153,7 @@
  * @property {BookEvent[]} events
  * @property {Relationship[]} relationships
  * @property {Highlight[]} highlights
+ * @property {EditorComment[]} editorComments
  * @property {Snapshot[]} snapshots
  * @property {NoteItem[]} notes
  */

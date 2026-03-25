@@ -4,7 +4,7 @@
 
 import { escapeHtml } from '../../utils.js';
 import { formatHighlightSource, canNavigateHighlightSource } from '../../highlight-source.js';
-import { toolbarHtml } from '../../editor.js';
+import { editorCardWithHost } from '../../editor.js';
 import { getAutosaveMs, getProgressMode, getSpellcheckEnabled, getSnapshotIntervalMinutes } from '../../prefs.js';
 import { WRITING_GUIDE_ARTICLES, getWritingGuideArticle } from '../../writing-guide-content.js';
 
@@ -164,10 +164,7 @@ export function renderNoteEditor(note, _app) {
     <div class="nl-view space-y-4">
       <button type="button" data-back-notes class="text-sm text-indigo-400 hover:text-indigo-300">← Notas</button>
       <input data-note-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white" value="${escapeHtml(note.title)}" />
-      <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">
-        ${toolbarHtml()}
-        <div data-ed-note class="nl-editor min-h-[200px]"></div>
-      </div>
+      ${editorCardWithHost('data-ed-note class="nl-editor min-h-[200px]"')}
       <button type="button" data-save-note class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500">Guardar nota</button>
     </div>
   `;

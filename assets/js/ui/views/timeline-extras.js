@@ -3,7 +3,7 @@
  */
 
 import { escapeHtml, sortByOrder } from '../../utils.js';
-import { toolbarHtml } from '../../editor.js';
+import { editorCardWithHost } from '../../editor.js';
 
 /**
  * @param {import('../../types.js').Book} book
@@ -106,10 +106,7 @@ export function renderExtraEditor(book, eb) {
     <div class="nl-view space-y-4">
       <button type="button" data-back-extras class="text-sm text-indigo-400 hover:text-indigo-300">← Lista de extras</button>
       <input data-extra-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white py-2 focus:outline-none focus:border-indigo-500" value="${escapeHtml(eb.title)}" />
-      <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">
-        ${toolbarHtml()}
-        <div data-ed-extra class="nl-editor min-h-[240px] nl-scroll overflow-y-auto"></div>
-      </div>
+      ${editorCardWithHost('data-ed-extra class="nl-editor min-h-[240px]"')}
       <div class="flex flex-wrap gap-3">
         <button type="button" data-save-extra class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm">Guardar extra</button>
         <button type="button" data-del-extra-editor class="px-4 py-2 rounded-lg border border-red-500/30 text-red-300 text-sm hover:bg-red-500/10">Eliminar extra</button>

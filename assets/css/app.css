@@ -58,13 +58,145 @@ html {
   line-height: 1.75;
 }
 
-.nl-editor:focus {
+.nl-editor:focus,
+.nl-editor:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 
-.nl-editor:focus-visible {
-  box-shadow: 0 0 0 2px rgb(99 102 241 / 0.35);
+/* Tailwind preflight quita viñetas/números; restaurar en el editor */
+.nl-editor ul,
+.nl-editor ol {
+  display: block;
+  margin: 0.5rem 0;
+  padding-left: 1.75rem;
+  list-style-position: outside;
+}
+
+.nl-editor ul {
+  list-style-type: disc;
+}
+
+.nl-editor ol {
+  list-style-type: decimal;
+}
+
+.nl-editor ul ul {
+  list-style-type: circle;
+}
+
+.nl-editor ul ul ul {
+  list-style-type: square;
+}
+
+.nl-editor ol ol {
+  list-style-type: lower-alpha;
+}
+
+.nl-editor ol ol ol {
+  list-style-type: lower-roman;
+}
+
+.nl-editor li {
+  display: list-item;
+  margin: 0.2rem 0;
+  padding-left: 0.25rem;
+}
+
+.nl-editor li::marker {
+  color: rgb(148 163 184);
+}
+
+.nl-toolbar-icon {
+  display: block;
+  vertical-align: middle;
+}
+
+.nl-editor-desk.nl-editor-page-mode {
+  background: rgb(15 23 42 / 0.92);
+  padding: 1.25rem 1rem 2.5rem;
+}
+
+/* Vista fluida (sin modo página): ancho máximo tipo columna */
+.nl-editor-sheet.nl-editor-sheet-fluid {
+  width: 100%;
+  max-width: min(100%, 48rem);
+  box-sizing: border-box;
+}
+
+/* Modo página: hoja con tamaño fijo (ANSI / ISO 216) */
+.nl-editor-sheet.nl-editor-sheet--page {
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.45);
   border-radius: 0.375rem;
+  border: 1px solid rgb(51 65 85 / 0.55);
+  background: rgb(30 41 59 / 0.96);
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* US Letter 8.5 × 11 in */
+.nl-editor-sheet.nl-editor-sheet--page.nl-editor-sheet--letter {
+  width: 8.5in;
+  max-width: 8.5in;
+  min-height: 11in;
+}
+
+/* ISO A4 210 × 297 mm */
+.nl-editor-sheet.nl-editor-sheet--page.nl-editor-sheet--a4 {
+  width: 210mm;
+  max-width: 210mm;
+  min-height: 297mm;
+}
+
+/* US Legal 8.5 × 14 in */
+.nl-editor-sheet.nl-editor-sheet--page.nl-editor-sheet--legal {
+  width: 8.5in;
+  max-width: 8.5in;
+  min-height: 14in;
+}
+
+/* ISO A5 148 × 210 mm */
+.nl-editor-sheet.nl-editor-sheet--page.nl-editor-sheet--a5 {
+  width: 148mm;
+  max-width: 148mm;
+  min-height: 210mm;
+}
+
+.nl-editor blockquote {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.85rem 0.65rem 1rem;
+  border-left: 4px solid rgb(99 102 241 / 0.55);
+  background: rgb(15 23 42 / 0.45);
+  font-style: italic;
+  color: rgb(203 213 225);
+}
+
+.nl-lh-compact {
+  line-height: 1.35 !important;
+}
+
+.nl-lh-comfort {
+  line-height: 1.75 !important;
+}
+
+.nl-lh-relaxed {
+  line-height: 2.15 !important;
+}
+
+span.nl-comment-mark {
+  background: rgb(99 102 241 / 0.18);
+  border-bottom: 1px dotted rgb(165 180 252 / 0.45);
+  cursor: pointer;
+  border-radius: 0.125rem;
+}
+
+span.nl-comment-mark:hover {
+  background: rgb(99 102 241 / 0.28);
+}
+
+.nl-comments-aside {
+  min-width: 0;
 }
 
 /* Scrollbars (WebKit) */

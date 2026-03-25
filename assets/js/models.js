@@ -152,6 +152,30 @@ export function createHighlight(bookId, sourceKind, sourceId, excerpt, overrides
 }
 
 /**
+ * Comentario en el editor (texto en HTML + metadatos).
+ * @param {string} bookId
+ * @param {string} sourceKind
+ * @param {string} sourceId
+ * @param {string} body
+ * @param {Record<string, unknown>} [overrides]
+ * @returns {import('./types.js').EditorComment}
+ */
+export function createEditorComment(bookId, sourceKind, sourceId, body, overrides = {}) {
+  const now = new Date().toISOString();
+  return {
+    id: uuid(),
+    bookId,
+    sourceKind,
+    sourceId,
+    body: String(body || ''),
+    createdAt: now,
+    updatedAt: now,
+    chapterId: '',
+    ...overrides,
+  };
+}
+
+/**
  * @returns {import('./types.js').Snapshot}
  */
 export function createSnapshot(label, bookPayload, overrides = {}) {
@@ -195,6 +219,7 @@ export function createEmptyBook(overrides = {}) {
     events: [],
     relationships: [],
     highlights: [],
+    editorComments: [],
     snapshots: [],
     notes: [],
     ...overrides,
@@ -273,10 +298,34 @@ export function normalizeBook(raw) {
     events: Array.isArray(b.events) ? b.events.map(normalizeEvent) : [],
     relationships: Array.isArray(b.relationships) ? b.relationships.map(normalizeRelationship) : [],
     highlights: Array.isArray(b.highlights) ? b.highlights.map(normalizeHighlight) : [],
+    editorComments: Array.isArray(b.editorComments) ? b.editorComments.map(normalizeEditorComment) : [],
     snapshots: Array.isArray(b.snapshots) ? b.snapshots.map(normalizeSnapshot) : [],
     notes: Array.isArray(b.notes) ? b.notes.map(normalizeNote) : [],
   });
   return book;
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {import('./types.js').EditorComment}
+ */
+function normalizeEditorComment(raw) {
+  const c = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
+  const now = new Date().toISOString();
+  /** @type {Record<string, unknown>} */
+  const o = {
+    id: typeof c.id === 'string' ? c.id : uuid(),
+    createdAt: typeof c.createdAt === 'string' ? c.createdAt : now,
+    chapterId: typeof c.chapterId === 'string' ? c.chapterId : '',
+  };
+  if (typeof c.updatedAt === 'string' && c.updatedAt) o.updatedAt = c.updatedAt;
+  return createEditorComment(
+    String(c.bookId || ''),
+    String(c.sourceKind || 'chapter'),
+    String(c.sourceId || ''),
+    String(c.body || ''),
+    o
+  );
 }
 
 /**

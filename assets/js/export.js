@@ -2,7 +2,16 @@
  * Exportación de libro y formatos — Narrative Lab
  */
 
+import { stripNlCommentMarks } from './editor-helpers.js';
 import { sortByOrder, stripHtml, wordCountFromHtml } from './utils.js';
+
+/**
+ * HTML de fragmento listo para export (sin marcas de comentario del editor).
+ * @param {string} [html]
+ */
+function cleanExportHtml(html) {
+  return stripNlCommentMarks(html || '');
+}
 
 /**
  * Ensambla HTML completo del libro (prólogo → capítulos/escenas → epílogo).
@@ -30,33 +39,33 @@ export function assembleBookHtml(book, includeNotes = true) {
       parts.push(`<p><strong>Objetivo del capítulo:</strong> ${escape(ch.chapterGoal)}</p>`);
     }
     if (ch.content && stripHtml(ch.content)) {
-      parts.push(ch.content);
+      parts.push(cleanExportHtml(ch.content));
     }
     const scenes = sortByOrder(ch.scenes || [], 'order');
     for (const sc of scenes) {
       parts.push(`<h3>${escape(sc.title)}</h3>`);
-      if (sc.content) parts.push(sc.content);
+      if (sc.content) parts.push(cleanExportHtml(sc.content));
     }
   }
 
   if (book.epilogue && stripHtml(book.epilogue)) {
-    parts.push('<h2>Epílogo</h2>', book.epilogue);
+    parts.push('<h2>Epílogo</h2>', cleanExportHtml(book.epilogue));
   }
 
   const blocks = book.extraBlocks || [];
   if (blocks.length) {
     parts.push('<h2>Extras</h2>');
     for (const eb of blocks) {
-      parts.push(`<h3>${escape(eb.title)}</h3>`, eb.content || '');
+      parts.push(`<h3>${escape(eb.title)}</h3>`, cleanExportHtml(eb.content || ''));
     }
   } else if (book.extras && stripHtml(book.extras)) {
-    parts.push('<h2>Extras</h2>', book.extras);
+    parts.push('<h2>Extras</h2>', cleanExportHtml(book.extras));
   }
 
   if (includeNotes && book.notes && book.notes.length) {
     parts.push('<h2>Notas</h2>');
     for (const n of book.notes) {
-      parts.push(`<h3>${escape(n.title)}</h3>`, n.content || '');
+      parts.push(`<h3>${escape(n.title)}</h3>`, cleanExportHtml(n.content || ''));
     }
   }
 

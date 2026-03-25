@@ -3,7 +3,7 @@
  */
 
 import { escapeHtml, sortByOrder } from '../../utils.js';
-import { toolbarHtml } from '../../editor.js';
+import { editorCardWithHost } from '../../editor.js';
 
 /**
  * @param {import('../../types.js').Book} book
@@ -47,10 +47,7 @@ export function renderChapterEditor(ch) {
         <label class="text-xs text-nl-muted">Objetivo del capítulo</label>
         <textarea data-ch-goal rows="2" class="mt-1 w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm">${escapeHtml(ch.chapterGoal)}</textarea>
       </div>
-      <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">
-        ${toolbarHtml()}
-        <div data-ed-chapter class="nl-editor min-h-[240px] nl-scroll overflow-y-auto"></div>
-      </div>
+      ${editorCardWithHost('data-ed-chapter class="nl-editor min-h-[240px]"')}
       <div>
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
           <h3 class="text-sm font-medium text-white">Escenas</h3>
@@ -79,10 +76,7 @@ export function renderSceneEditor(ch, sc) {
     <div class="nl-view flex flex-col gap-4">
       <button type="button" data-back-sc class="text-sm text-indigo-400 w-fit">← ${escapeHtml(ch.title)}</button>
       <input data-sc-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white focus:outline-none focus:border-indigo-500 pb-2" value="${escapeHtml(sc.title)}" />
-      <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">
-        ${toolbarHtml()}
-        <div data-ed-scene class="nl-editor min-h-[280px] nl-scroll overflow-y-auto"></div>
-      </div>
+      ${editorCardWithHost('data-ed-scene class="nl-editor min-h-[280px]"')}
     </div>
   `;
 }
