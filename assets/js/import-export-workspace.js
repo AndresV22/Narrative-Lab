@@ -60,7 +60,7 @@ export function readJsonFile(file) {
     r.onload = () => {
       try {
         resolve(JSON.parse(String(r.result)));
-      } catch (e) {
+      } catch {
         reject(new Error('El archivo no es JSON válido'));
       }
     };

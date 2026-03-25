@@ -1,5 +1,6 @@
 # Dependencias (si añades npm/node)
 node_modules/
+dist/
 
 # Entorno y secretos
 .env

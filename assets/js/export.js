@@ -151,27 +151,6 @@ export function exportPdfPrint(book) {
 }
 
 /**
- * Carga script desde URL (una sola vez).
- * @param {string} url
- * @returns {Promise<void>}
- */
-function loadScript(url) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[data-src="${url}"]`)) {
-      resolve();
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = url;
-    s.async = true;
-    s.dataset.src = url;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('No se pudo cargar el script de exportación'));
-    document.head.appendChild(s);
-  });
-}
-
-/**
  * Convierte runs inline (negrita, cursiva, etc.) para docx.
  * @param {HTMLElement} el
  * @param {any} docx — módulo docx (TextRun, UnderlineType)
@@ -292,7 +271,7 @@ function processBlockForDocx(node, out, docx) {
 export async function exportDocx(book) {
   let docx;
   try {
-    docx = await import('https://esm.sh/docx@8.5.0');
+    docx = await import('docx');
   } catch {
     throw new Error('No se pudo cargar el generador DOCX. Comprueba la conexión e inténtalo de nuevo.');
   }
@@ -328,17 +307,13 @@ export async function exportDocx(book) {
 }
 
 /**
- * EPUB mínimo con JSZip (CDN).
+ * EPUB mínimo con JSZip.
  * @param {import('./types.js').Book} book
  */
 export async function exportEpub(book) {
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
-  const JSZip = /** @type {any} */ (window).JSZip;
-  if (!JSZip) throw new Error('JSZip no disponible');
-
+  const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   const title = book.name || 'Libro';
-  const id = book.id.replace(/[^a-z0-9-]/gi, '');
   const htmlContent = assembleBookHtml(book, true);
 
   const mimetype = 'application/epub+zip';
@@ -407,7 +382,7 @@ function downloadText(name, text, mime) {
  * @param {Blob} blob
  * @param {string} [mime]
  */
-function downloadBlob(filename, blob, mime) {
+function downloadBlob(filename, blob, _mime) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

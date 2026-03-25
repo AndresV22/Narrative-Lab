@@ -4,10 +4,34 @@
 
 import { shellMarkup } from '../../components/shell.js';
 import { escapeHtml } from './utils.js';
+import {
+  EXPORT_REMINDER_DAYS,
+  daysSinceLastExport,
+  exportReminderSummaryLine,
+  shouldShowExportReminder,
+  setLastExportNow,
+} from './prefs.js';
 import { createSnapshot } from './models.js';
 import { computeWordStats } from './export.js';
 import { listRelationships } from './relations.js';
 import { countWarningIssues, getBookStats } from './analysis.js';
+
+function exportReminderBanner() {
+  if (!shouldShowExportReminder()) return '';
+  const d = daysSinceLastExport();
+  const lead =
+    d === null
+      ? 'Es aconsejable exportar el workspace JSON desde la barra lateral de vez en cuando.'
+      : `Llevas ${d} días sin registrar una exportación (aviso tras ${EXPORT_REMINDER_DAYS} días).`;
+  return `
+    <div class="px-3 py-2 mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-100/90" role="status">
+      <strong class="block text-amber-200 mb-1">Copia de seguridad</strong>
+      <p class="mb-1">${lead}</p>
+      <p class="text-nl-muted">${exportReminderSummaryLine()}</p>
+      <button type="button" data-dismiss-export-reminder class="mt-2 block text-indigo-300 hover:text-indigo-200 underline">He exportado ahora</button>
+    </div>
+  `;
+}
 
 export function mountShell(root, app) {
   root.className = 'h-full flex flex-col min-h-0';
@@ -99,6 +123,7 @@ export function renderSidebar(app) {
         <button type="button" data-act="new-book" class="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">+ Nuevo libro</button>
         <button type="button" data-act="template" class="mt-2 w-full py-2 px-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm text-slate-200">Desde plantilla…</button>
       </div>
+      ${exportReminderBanner()}
       <div class="p-2 flex-1 min-h-0 nl-scroll overflow-y-auto" data-sidebar-nav>
         <ul class="space-y-1">
           ${ws.books.map((b) => `
@@ -127,6 +152,10 @@ export function renderSidebar(app) {
     sidebar.querySelector('[data-act="import-ws"]')?.addEventListener('click', () => app.triggerImportWorkspace());
     sidebar.querySelector('[data-act="writing-guide"]')?.addEventListener('click', () => app.openWritingGuide(null));
     sidebar.querySelector('[data-act="app-settings"]')?.addEventListener('click', () => app.setView('appSettings'));
+    sidebar.querySelector('[data-dismiss-export-reminder]')?.addEventListener('click', () => {
+      setLastExportNow();
+      app.refreshSidebar();
+    });
     sidebar.querySelectorAll('[data-open-book]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-open-book');
@@ -161,6 +190,7 @@ export function renderSidebar(app) {
       <p class="font-medium text-white truncate text-sm">${escapeHtml(book.name)}</p>
       <p class="text-xs text-nl-muted truncate">${escapeHtml(book.author || 'Sin autor')}</p>
     </div>
+    ${exportReminderBanner()}
     <div class="p-2 space-y-0.5 nl-scroll overflow-y-auto flex-1 min-h-0" data-sidebar-nav>
       <p class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-nl-muted">Plan</p>
       ${nav('synopsis', 'Sinopsis')}
@@ -193,6 +223,10 @@ export function renderSidebar(app) {
   `;
 
   sidebar.querySelector('[data-back]')?.addEventListener('click', () => app.closeBook());
+  sidebar.querySelector('[data-dismiss-export-reminder]')?.addEventListener('click', () => {
+    setLastExportNow();
+    app.refreshSidebar();
+  });
   sidebar.querySelector('[data-act="writing-guide"]')?.addEventListener('click', () => app.openWritingGuide(null));
   sidebar.querySelectorAll('[data-nav]').forEach((btn) => {
     btn.addEventListener('click', () => {

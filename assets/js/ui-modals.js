@@ -5,19 +5,46 @@
 import { escapeHtml } from './utils.js';
 import { searchWorkspace } from './search.js';
 
+/**
+ * Escape cierra el modal, foco vuelve al activador previo.
+ * @param {HTMLElement} root
+ * @param {() => void} close
+ */
+function attachModalDismiss(root, close) {
+  const prev = document.activeElement;
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      document.removeEventListener('keydown', onKey, true);
+      close();
+      if (prev instanceof HTMLElement) prev.focus();
+    }
+  };
+  document.addEventListener('keydown', onKey, true);
+  return () => document.removeEventListener('keydown', onKey, true);
+}
+
 export function renderSearchModal(app) {
   const host = app.els.modalHost;
   host.innerHTML = `
     <div class="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/60 backdrop-blur-sm" data-close-modal>
-      <div class="w-full max-w-lg rounded-xl border border-nl-border bg-nl-surface shadow-xl p-4" data-stop>
+      <div class="w-full max-w-lg rounded-xl border border-nl-border bg-nl-surface shadow-xl p-4" data-stop role="dialog" aria-modal="true" aria-labelledby="nl-search-title">
+        <h2 id="nl-search-title" class="sr-only">Búsqueda global</h2>
         <input type="search" data-q class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm mb-3" placeholder="Buscar en sinopsis, prólogo, capítulos, escenas, notas, eventos, extras…" autofocus />
         <ul data-results class="max-h-64 overflow-y-auto nl-scroll text-sm space-y-2"></ul>
       </div>
     </div>
   `;
-  const overlay = host.querySelector('[data-close-modal]');
+  const overlay = /** @type {HTMLElement|null} */ (host.querySelector('[data-close-modal]'));
+  const panel = /** @type {HTMLElement|null} */ (host.querySelector('[data-stop]'));
   const inp = /** @type {HTMLInputElement|null} */ (host.querySelector('[data-q]'));
   const results = /** @type {HTMLElement|null} */ (host.querySelector('[data-results]'));
+
+  function close() {
+    removeDismiss();
+    host.innerHTML = '';
+  }
+  const removeDismiss = attachModalDismiss(/** @type {HTMLElement} */ (overlay), close);
 
   function run() {
     const q = inp?.value || '';
@@ -39,6 +66,7 @@ export function renderSearchModal(app) {
         const id = btn.getAttribute('data-id');
         const chId = btn.getAttribute('data-ch') || '';
         if (!bookId) return;
+        removeDismiss();
         host.innerHTML = '';
         app.state.bookId = bookId;
         if (kind === 'synopsis') app.setView('synopsis');
@@ -62,8 +90,10 @@ export function renderSearchModal(app) {
 
   inp?.addEventListener('input', run);
   overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) host.innerHTML = '';
+    if (e.target === overlay) close();
   });
+  panel?.addEventListener('click', (e) => e.stopPropagation());
+  queueMicrotask(() => inp?.focus());
   run();
 }
 
@@ -75,9 +105,9 @@ export function renderTemplateModal(app, templates) {
   const host = app.els.modalHost;
   host.innerHTML = `
     <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-8 sm:py-12" data-backdrop>
-      <div class="max-w-md w-full h-[min(90vh,calc(100vh-4rem))] flex flex-col rounded-xl border border-nl-border bg-nl-surface shadow-xl overflow-hidden my-auto">
+      <div class="max-w-md w-full h-[min(90vh,calc(100vh-4rem))] flex flex-col rounded-xl border border-nl-border bg-nl-surface shadow-xl overflow-hidden my-auto" role="dialog" aria-modal="true" aria-labelledby="nl-tpl-title" data-tpl-panel>
         <div class="px-6 pt-6 pb-3 shrink-0">
-          <h3 class="text-lg font-semibold text-white">Nuevo libro desde plantilla</h3>
+          <h3 id="nl-tpl-title" class="text-lg font-semibold text-white">Nuevo libro desde plantilla</h3>
           <p class="text-xs text-nl-muted mt-1">Desplázate para ver todas las opciones.</p>
         </div>
         <ul class="flex-1 min-h-0 overflow-y-auto nl-scroll overscroll-contain px-6 space-y-2 pb-2 touch-pan-y">
@@ -96,15 +126,20 @@ export function renderTemplateModal(app, templates) {
       </div>
     </div>
   `;
-  host.querySelector('[data-backdrop]')?.addEventListener('click', (e) => {
-    if (e.target === host.querySelector('[data-backdrop]')) host.innerHTML = '';
-  });
-  host.querySelector('[data-cancel]')?.addEventListener('click', () => {
+  const backdrop = /** @type {HTMLElement|null} */ (host.querySelector('[data-backdrop]'));
+  function close() {
+    removeDismiss();
     host.innerHTML = '';
+  }
+  const removeDismiss = attachModalDismiss(/** @type {HTMLElement} */ (backdrop), close);
+  backdrop?.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
   });
+  host.querySelector('[data-cancel]')?.addEventListener('click', close);
   host.querySelectorAll('[data-tpl]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-tpl');
+      removeDismiss();
       host.innerHTML = '';
       if (id) app.createFromTemplateId(id);
     });
@@ -117,9 +152,9 @@ export function renderTemplateModal(app, templates) {
 export function renderImportModal(app) {
   const host = app.els.modalHost;
   host.innerHTML = `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div class="max-w-md w-full rounded-xl border border-nl-border bg-nl-surface p-6">
-        <h3 class="text-lg font-semibold text-white mb-2">Importar workspace</h3>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" data-imp-backdrop>
+      <div class="max-w-md w-full rounded-xl border border-nl-border bg-nl-surface p-6" role="dialog" aria-modal="true" aria-labelledby="nl-imp-title">
+        <h3 id="nl-imp-title" class="text-lg font-semibold text-white mb-2">Importar workspace</h3>
         <p class="text-sm text-nl-muted mb-4">Elige si reemplazar todo o fusionar con los datos actuales.</p>
         <div class="flex flex-col gap-2">
           <button type="button" data-imp="replace" class="py-2 rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 text-sm">Reemplazar todo</button>
@@ -130,17 +165,27 @@ export function renderImportModal(app) {
       </div>
     </div>
   `;
-  host.querySelector('[data-cancel]')?.addEventListener('click', () => {
+  const backdrop = /** @type {HTMLElement|null} */ (host.querySelector('[data-imp-backdrop]'));
+  function close() {
+    removeDismiss();
     host.innerHTML = '';
     app.pendingImport = null;
+  }
+  const removeDismiss = attachModalDismiss(/** @type {HTMLElement} */ (backdrop), close);
+  backdrop?.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
   });
+  host.querySelector('[data-cancel]')?.addEventListener('click', close);
   host.querySelector('[data-imp="replace"]')?.addEventListener('click', () => {
+    removeDismiss();
     app.applyImport('replace');
   });
   host.querySelector('[data-imp="merge"]')?.addEventListener('click', () => {
+    removeDismiss();
     app.applyImport('merge');
   });
   host.querySelector('[data-imp="merge-new"]')?.addEventListener('click', () => {
+    removeDismiss();
     app.applyImport('merge-new');
   });
 }

@@ -2,8 +2,9 @@
  * Orquestación principal — Narrative Lab
  */
 
+import '../css/app.css';
 import { loadWorkspace, scheduleSave, flushSave, setSaveStatusCallback, configureAutosaveDelay } from './storage.js';
-import { getAutosaveMs, getProgressMode } from './prefs.js';
+import { getAutosaveMs, getProgressMode, getSpellcheckEnabled, setLastExportNow } from './prefs.js';
 import {
   createEmptyBook,
   createHighlight,
@@ -172,6 +173,7 @@ export class App {
 
     this.editor = new RichEditor(el, {
       placeholder: 'Escribe aquí…',
+      spellcheck: getSpellcheckEnabled(),
       progressMode: getProgressMode(),
       onProgressRefresh: () => {
         if (this.els && this.getCurrentBook()) this.refreshRightPanel();
@@ -235,7 +237,7 @@ export class App {
    * @param {string|null} id
    * @param {string|null} chapterId
    */
-  tryHighlight(kind, id, chapterId) {
+  tryHighlight(kind, id, _chapterId) {
     const book = this.getCurrentBook();
     if (!book || !this.editor) return;
     const text = this.editor.getSelectedText();
@@ -465,6 +467,8 @@ export class App {
   exportWorkspace() {
     if (!this.workspace) return;
     downloadWorkspaceJson(this.workspace);
+    setLastExportNow();
+    this.refreshSidebar();
   }
 
   triggerImportWorkspace() {

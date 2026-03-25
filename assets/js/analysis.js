@@ -4,7 +4,7 @@
 
 import { computeWordStats } from './export.js';
 import { listRelationships } from './relations.js';
-import { sortByOrder, stripHtml, wordCountFromHtml } from './utils.js';
+import { sortByOrder, wordCountFromHtml } from './utils.js';
 
 /** Palabras por minuto para tiempo de lectura estimado */
 const READING_WPM = 200;

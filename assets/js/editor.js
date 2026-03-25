@@ -52,7 +52,6 @@ export function computeEditorRealtimeMetrics(html) {
     .map((p) => p.replace(/\s+/g, ' ').trim())
     .filter(Boolean);
   const paraWords = paragraphs.map((p) => p.split(/\s+/).filter(Boolean).length);
-  const paragraphCount = paragraphs.length || 1;
   const maxParagraphWords = paraWords.length ? Math.max(...paraWords) : 0;
   const avgParagraphWords = paraWords.length ? Math.round(paraWords.reduce((a, b) => a + b, 0) / paraWords.length) : 0;
 
@@ -95,6 +94,7 @@ export function computeEditorRealtimeMetrics(html) {
  * @property {'boundary'|'debounce'} [progressMode]
  * @property {() => void} [onProgressRefresh]
  * @property {(metrics: EditorRealtimeMetrics) => void} [onRealtimeMetrics]
+ * @property {boolean} [spellcheck] Corrector nativo del navegador (por defecto true)
  */
 
 export class RichEditor {
@@ -127,6 +127,8 @@ export class RichEditor {
   mount(initialHtml = '') {
     this.host.classList.add('nl-editor', 'font-serif', 'text-lg', 'text-slate-200', 'p-4', 'rounded-md', 'border', 'border-nl-border', 'bg-nl-raised', 'nl-scroll', 'min-h-[200px]');
     this.host.contentEditable = 'true';
+    this.host.spellcheck = this.options.spellcheck !== false;
+    this.host.setAttribute('lang', 'es');
     this.host.setAttribute('role', 'textbox');
     this.host.setAttribute('aria-multiline', 'true');
     if (this.options.placeholder) {

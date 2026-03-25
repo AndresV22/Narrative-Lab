@@ -1,0 +1,177 @@
+/**
+ * Guía de escritura, ajustes de app, notas y destacados — Narrative Lab
+ */
+
+import { escapeHtml } from '../../utils.js';
+import { toolbarHtml } from '../../editor.js';
+import { getAutosaveMs, getProgressMode, getSpellcheckEnabled } from '../../prefs.js';
+import { WRITING_GUIDE_ARTICLES, getWritingGuideArticle } from '../../writing-guide-content.js';
+
+/**
+ * @param {import('../../app.js').App} app
+ */
+export function renderWritingGuide(app) {
+  const id = app.state.guideArticleId;
+  if (id) {
+    const article = getWritingGuideArticle(id);
+    if (!article) {
+      return `
+        <div class="max-w-3xl mx-auto p-6">
+          <button type="button" data-guide-back class="text-sm text-indigo-400 hover:text-indigo-300 mb-4">← Índice de la guía</button>
+          <p class="text-nl-muted text-sm">Artículo no encontrado.</p>
+        </div>
+      `;
+    }
+    return `
+      <div class="max-w-3xl mx-auto w-full p-6 flex flex-col min-h-0 flex-1">
+        <button type="button" data-guide-back class="text-sm text-indigo-400 hover:text-indigo-300 mb-4 w-fit">← Índice de la guía</button>
+        <article class="rounded-xl border border-nl-border bg-nl-surface p-6 nl-scroll overflow-y-auto flex-1 min-h-0">
+          <p class="text-[10px] uppercase tracking-wider text-indigo-400/90 mb-2">${escapeHtml(article.category)}</p>
+          <h2 class="text-xl font-semibold text-white mb-4">${escapeHtml(article.title)}</h2>
+          <div class="text-sm max-w-none space-y-1">${article.body}</div>
+        </article>
+      </div>
+    `;
+  }
+
+  const byCat = {};
+  for (const a of WRITING_GUIDE_ARTICLES) {
+    if (!byCat[a.category]) byCat[a.category] = [];
+    byCat[a.category].push(a);
+  }
+  const cats = Object.keys(byCat).sort();
+  const sections = cats
+    .map(
+      (cat) => `
+    <section class="mb-8">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-nl-muted mb-3">${escapeHtml(cat)}</h3>
+      <ul class="space-y-2">
+        ${byCat[cat]
+          .map(
+            (a) => `
+          <li>
+            <button type="button" data-guide-open="${escapeHtml(a.id)}" class="w-full text-left p-4 rounded-xl border border-nl-border bg-nl-surface hover:border-indigo-500/40 transition-colors">
+              <span class="font-medium text-white">${escapeHtml(a.title)}</span>
+              <p class="text-xs text-nl-muted mt-1">${escapeHtml(a.excerpt)}</p>
+            </button>
+          </li>
+        `
+          )
+          .join('')}
+      </ul>
+    </section>
+  `
+    )
+    .join('');
+
+  return `
+    <div class="max-w-3xl mx-auto w-full p-6 flex flex-col min-h-0 flex-1">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-white">Guía de escritura</h2>
+        <p class="text-sm text-nl-muted mt-2 max-w-xl">Ficción, ciencia ficción, fantasía, romance y técnica narrativa. Referencias de estudio a Isaac Asimov, J. R. R. Tolkien y Brandon Sanderson (ilustrativas, no prescriptivas).</p>
+      </div>
+      <div class="nl-scroll overflow-y-auto flex-1 min-h-0" data-guide-index>
+        ${sections}
+      </div>
+    </div>
+  `;
+}
+
+export function renderAppSettingsPanel() {
+  const rawMs = getAutosaveMs();
+  const opts = [2000, 4000, 8000, 12000];
+  const ms = opts.reduce((a, b) => (Math.abs(b - rawMs) < Math.abs(a - rawMs) ? b : a), 4000);
+  const pm = getProgressMode();
+  const sc = getSpellcheckEnabled();
+  return `
+    <div class="max-w-xl mx-auto p-6 space-y-6">
+      <h2 class="text-lg font-semibold text-white">Ajustes</h2>
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+        <h3 class="text-sm font-medium text-slate-200">Corrector ortográfico del navegador</h3>
+        <p class="text-xs text-nl-muted">Subraya posibles errores según el idioma del sistema (no sustituye texto automáticamente).</p>
+        <label class="flex items-start gap-3 text-sm text-slate-300 cursor-pointer">
+          <input type="checkbox" class="mt-1 rounded border-nl-border" data-app-spellcheck ${sc ? 'checked' : ''} />
+          <span>Activar subrayado ortográfico nativo en los editores</span>
+        </label>
+        <p class="text-xs text-nl-muted">Se aplica al guardar o al volver a abrir un editor.</p>
+      </section>
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+        <h3 class="text-sm font-medium text-slate-200">Guardado automático</h3>
+        <p class="text-xs text-nl-muted">Frecuencia con la que se guarda el workspace en el navegador (IndexedDB).</p>
+        <select data-app-autosave class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm text-slate-200">
+          ${opts.map((v) => `<option value="${v}" ${ms === v ? 'selected' : ''}>Cada ${v / 1000} s</option>`).join('')}
+        </select>
+      </section>
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+        <h3 class="text-sm font-medium text-slate-200">Panel de progreso (conteo de palabras)</h3>
+        <label class="flex items-start gap-3 text-sm text-slate-300 cursor-pointer">
+          <input type="radio" name="nl-prog" value="boundary" class="mt-1" ${pm === 'boundary' ? 'checked' : ''} data-prog-mode />
+          <span>Actualizar al pulsar <strong class="text-slate-200 font-medium">espacio</strong> o <strong class="text-slate-200 font-medium">punto</strong></span>
+        </label>
+        <label class="flex items-start gap-3 text-sm text-slate-300 cursor-pointer">
+          <input type="radio" name="nl-prog" value="debounce" class="mt-1" ${pm === 'debounce' ? 'checked' : ''} data-prog-mode />
+          <span>Actualizar mientras escribes (ligero retraso)</span>
+        </label>
+        <p class="text-xs text-nl-muted">El modo de progreso se aplica al abrir o cambiar de editor.</p>
+      </section>
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3" data-export-reminder-section>
+        <h3 class="text-sm font-medium text-slate-200">Copia de seguridad</h3>
+        <p class="text-xs text-nl-muted">Recuerda exportar el workspace JSON desde la barra lateral. Aquí puedes ver cuándo marcaste la última exportación en este dispositivo.</p>
+        <p class="text-sm text-slate-300" data-last-export-label></p>
+        <button type="button" data-mark-exported class="px-4 py-2 rounded-lg border border-nl-border text-sm text-slate-200 hover:bg-nl-raised">He exportado ahora</button>
+      </section>
+      <button type="button" data-save-app-settings class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500">Guardar ajustes</button>
+    </div>
+  `;
+}
+
+export function renderNotesList(book, _app) {
+  return `
+    <div class="max-w-3xl mx-auto p-6">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h2 class="text-lg font-semibold text-white">Notas</h2>
+        <button type="button" data-add-note class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white hover:bg-indigo-500">+ Nota</button>
+      </div>
+      <ul class="space-y-2">
+        ${book.notes.map((n) => `
+          <li class="flex gap-2 items-stretch">
+            <button type="button" data-open-note="${n.id}" class="flex-1 text-left p-3 rounded-lg border border-nl-border bg-nl-surface hover:border-indigo-500/40">
+              <div class="font-medium text-white">${escapeHtml(n.title)}</div>
+            </button>
+            <button type="button" data-del-note="${n.id}" class="shrink-0 px-3 rounded-lg border border-nl-border text-red-400 hover:bg-red-500/10 text-sm" title="Eliminar">✕</button>
+          </li>
+        `).join('') || '<li class="text-sm text-nl-muted">Sin notas.</li>'}
+      </ul>
+    </div>
+  `;
+}
+
+export function renderNoteEditor(note, _app) {
+  return `
+    <div class="max-w-3xl mx-auto w-full p-6 space-y-4">
+      <button type="button" data-back-notes class="text-sm text-indigo-400 hover:text-indigo-300">← Notas</button>
+      <input data-note-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white" value="${escapeHtml(note.title)}" />
+      <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">
+        ${toolbarHtml()}
+        <div data-ed-note class="nl-editor min-h-[200px]"></div>
+      </div>
+      <button type="button" data-save-note class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500">Guardar nota</button>
+    </div>
+  `;
+}
+
+export function renderHighlights(book, _app) {
+  return `
+    <div class="max-w-3xl mx-auto p-6">
+      <h2 class="text-lg font-semibold text-white mb-6">Frases destacadas</h2>
+      <ul class="space-y-3">
+        ${book.highlights.map((h) => `
+          <li class="p-3 rounded-lg border border-nl-border bg-nl-surface flex justify-between gap-3">
+            <blockquote class="text-slate-200 text-sm flex-1">${escapeHtml(h.excerpt)}</blockquote>
+            <button type="button" data-del-hl="${h.id}" class="text-xs text-red-400 hover:text-red-300">Eliminar</button>
+          </li>
+        `).join('') || '<li class="text-nl-muted text-sm">Selecciona texto en el editor y usa «Destacar selección».</li>'}
+      </ul>
+    </div>
+  `;
+}

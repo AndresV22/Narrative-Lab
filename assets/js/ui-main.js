@@ -4,7 +4,14 @@
 
 import { createChapter, createScene, createCharacter, createEvent, createNote, createSnapshot, createAct, createExtraBlock } from './models.js';
 import { configureAutosaveDelay } from './storage.js';
-import { getAutosaveMs, getProgressMode, setAutosaveMs, setProgressMode } from './prefs.js';
+import {
+  exportReminderSummaryLine,
+  getAutosaveMs,
+  setAutosaveMs,
+  setLastExportNow,
+  setProgressMode,
+  setSpellcheckEnabled,
+} from './prefs.js';
 import { escapeHtml, sortByOrder } from './utils.js';
 import { linkCharacterToChapter, linkCharacterToScene, linkEventToEvent, removeRelationship } from './relations.js';
 import { renderSidebar, renderRightPanel } from './ui-shell.js';
@@ -220,6 +227,13 @@ function bindChapterSceneDnD(main, book, ch, app) {
  * @param {import('./app.js').App} app
  */
 function bindAppSettingsPanel(main, app) {
+  const lastExportEl = main.querySelector('[data-last-export-label]');
+  if (lastExportEl) lastExportEl.textContent = exportReminderSummaryLine();
+  main.querySelector('[data-mark-exported]')?.addEventListener('click', () => {
+    setLastExportNow();
+    if (lastExportEl) lastExportEl.textContent = exportReminderSummaryLine();
+    app.refreshSidebar();
+  });
   main.querySelector('[data-save-app-settings]')?.addEventListener('click', () => {
     const sel = /** @type {HTMLSelectElement|null} */ (main.querySelector('[data-app-autosave]'));
     const ms = sel ? parseInt(sel.value, 10) : 4000;
@@ -228,6 +242,8 @@ function bindAppSettingsPanel(main, app) {
     const prog = main.querySelector('[data-prog-mode]:checked');
     const mode = prog && 'value' in prog ? String(/** @type {HTMLInputElement} */ (prog).value) : 'boundary';
     setProgressMode(mode === 'debounce' ? 'debounce' : 'boundary');
+    const sc = /** @type {HTMLInputElement|null} */ (main.querySelector('[data-app-spellcheck]'));
+    setSpellcheckEnabled(!!sc?.checked);
     app.refresh();
   });
 }
