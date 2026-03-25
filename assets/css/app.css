@@ -1,0 +1,111 @@
+/* Narrative Lab — capa fina sobre Tailwind */
+
+html {
+  color-scheme: dark;
+}
+
+[contenteditable="true"]:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(148 163 184 / 0.5);
+  pointer-events: none;
+}
+
+.nl-editor[contenteditable="true"] {
+  min-height: 12rem;
+  line-height: 1.75;
+}
+
+.nl-editor:focus {
+  outline: none;
+}
+
+.nl-editor:focus-visible {
+  box-shadow: 0 0 0 2px rgb(99 102 241 / 0.35);
+  border-radius: 0.375rem;
+}
+
+/* Scrollbars (WebKit) */
+.nl-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.nl-scroll::-webkit-scrollbar-thumb {
+  background: rgb(42 49 64);
+  border-radius: 4px;
+}
+.nl-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Timeline */
+.nl-timeline-line {
+  background: linear-gradient(to bottom, rgb(99 102 241 / 0.5), rgb(99 102 241 / 0.15));
+}
+
+/* Print export preview */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #nl-print-root,
+  #nl-print-root * {
+    visibility: visible;
+  }
+  #nl-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+    color: black;
+  }
+  /*
+   * Tailwind preflight pone h1–h6 con font-size/font-weight inherit;
+   * sin esto, títulos y PDF se ven como texto corrido.
+   */
+  #nl-print-root .nl-print-export {
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.55;
+    color: #000;
+  }
+  #nl-print-root .nl-print-export h1 {
+    font-size: 22pt;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0 0 0.75rem;
+  }
+  #nl-print-root .nl-print-export h2 {
+    font-size: 16pt;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 1.25rem 0 0.5rem;
+  }
+  #nl-print-root .nl-print-export h3 {
+    font-size: 13pt;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 1rem 0 0.4rem;
+  }
+  #nl-print-root .nl-print-export p {
+    margin: 0 0 0.65rem;
+  }
+  #nl-print-root .nl-print-export strong,
+  #nl-print-root .nl-print-export b {
+    font-weight: 700;
+  }
+  #nl-print-root .nl-print-export em,
+  #nl-print-root .nl-print-export i {
+    font-style: italic;
+  }
+  #nl-print-root .nl-print-export blockquote {
+    margin: 0 0 0.65rem;
+    padding-left: 1rem;
+    border-left: 3px solid #ccc;
+  }
+  #nl-print-root .nl-print-export ul,
+  #nl-print-root .nl-print-export ol {
+    margin: 0 0 0.65rem;
+    padding-left: 1.35rem;
+  }
+}

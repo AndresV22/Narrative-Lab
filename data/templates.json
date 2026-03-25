@@ -1,0 +1,181 @@
+{
+  "templates": [
+    {
+      "id": "novel",
+      "name": "Novela",
+      "description": "Estructura clásica con actos y capítulos numerados.",
+      "category": "Ficción general",
+      "wordGoal": 80000,
+      "chapters": [
+        { "title": "Acto I — Presentación", "chapterGoal": "Presentar mundo y conflicto.", "scenes": [{ "title": "Apertura" }, { "title": "Incidente incitante" }] },
+        { "title": "Acto II — Confrontación", "chapterGoal": "Escalar tensión y obstáculos.", "scenes": [{ "title": "Segundo acto" }, { "title": "Punto medio" }] },
+        { "title": "Acto III — Resolución", "chapterGoal": "Clímax y desenlace.", "scenes": [{ "title": "Crisis" }, { "title": "Clímax" }, { "title": "Resolución" }] }
+      ]
+    },
+    {
+      "id": "short",
+      "name": "Cuento corto",
+      "description": "Pocos capítulos, ritmo concentrado.",
+      "category": "Cuento",
+      "wordGoal": 5000,
+      "chapters": [
+        { "title": "Inicio", "chapterGoal": "Situación y tono.", "scenes": [{ "title": "Escena única o breve" }] },
+        { "title": "Desarrollo", "chapterGoal": "Giro o tensión.", "scenes": [{ "title": "Conflicto" }] },
+        { "title": "Final", "chapterGoal": "Desenlace satisfactorio.", "scenes": [{ "title": "Cierre" }] }
+      ]
+    },
+    {
+      "id": "script",
+      "name": "Guión",
+      "description": "Bloques tipo escena para diálogo y acotaciones.",
+      "category": "Guión",
+      "wordGoal": 12000,
+      "chapters": [
+        { "title": "Secuencia 1", "chapterGoal": "Establecer escena y personajes en pantalla.", "scenes": [{ "title": "INT/EXT — Lugar — DÍA" }, { "title": "Diálogo y acción" }] },
+        { "title": "Secuencia 2", "chapterGoal": "Avance del conflicto.", "scenes": [{ "title": "Nueva localización" }] },
+        { "title": "Secuencia 3", "chapterGoal": "Clímax y cierre.", "scenes": [{ "title": "Escena final" }] }
+      ]
+    },
+    {
+      "id": "ciencia-ficcion",
+      "name": "Ciencia ficción",
+      "description": "Mundo, reglas, tecnología o idea central; conflicto que pone en jaque el statu quo.",
+      "category": "Ciencia ficción",
+      "synopsisHint": "Resume la premisa (qué regla del mundo se rompe o se pone a prueba) y el coste moral o social del conflicto.",
+      "wordGoal": 90000,
+      "chapters": [
+        { "title": "Reglas del mundo", "chapterGoal": "Mostrar la normalidad y las leyes (sociales, físicas o tecnológicas) de tu universo.", "scenes": [{ "title": "Estado estable" }, { "title": "Primera grieta" }] },
+        { "title": "Incitación", "chapterGoal": "El descubrimiento, mensaje o evento que inicia la historia.", "scenes": [{ "title": "Revelación o amenaza" }] },
+        { "title": "Reacción y apuestas", "chapterGoal": "Qué se juega el protagonista y quién se opone.", "scenes": [{ "title": "Decisión de actuar" }] },
+        { "title": "Inmersión", "chapterGoal": "Explorar el nuevo terreno (lugar, conspiración, IA, colonia…).", "scenes": [{ "title": "Información y peligro" }] },
+        { "title": "Punto medio", "chapterGoal": "Giro que cambia el objetivo o la comprensión del problema.", "scenes": [{ "title": "Verdad parcial o traición" }] },
+        { "title": "Crisis y consecuencias", "chapterGoal": "Las reglas del mundo se tensan; fallos con coste real.", "scenes": [{ "title": "Consecuencias irreversibles" }] },
+        { "title": "Revelación", "chapterGoal": "La pieza que faltaba: causa, villano o paradoja central.", "scenes": [{ "title": "Choque de ideas" }] },
+        { "title": "Clímax", "chapterGoal": "Prueba final de la premisa científica o moral.", "scenes": [{ "title": "Confrontación decisiva" }] },
+        { "title": "Nuevo equilibrio", "chapterGoal": "Qué mundo queda después; tono de cierre (esperanzador, ambiguo, duro).", "scenes": [{ "title": "Epílogo breve" }] }
+      ]
+    },
+    {
+      "id": "fantasia",
+      "name": "Fantasía",
+      "description": "Mundo mágico, viaje, pruebas y confrontación con el poder o el mal.",
+      "category": "Fantasía",
+      "synopsisHint": "Define la magia o ley fantástica (límites y precio), el deseo del protagonista y la amenaza que lo empuja a actuar.",
+      "wordGoal": 100000,
+      "chapters": [
+        { "title": "El mundo y la norma", "chapterGoal": "Vida cotidiana y reglas del reino, tribu o orden mágico.", "scenes": [{ "title": "Rutina y deseo" }] },
+        { "title": "La perturbación", "chapterGoal": "Llamado, profecía, pérdida o invasión que rompe el equilibrio.", "scenes": [{ "title": "Incidente fantástico" }] },
+        { "title": "Cruce del umbral", "chapterGoal": "Salir del hogar; primeras reglas del camino.", "scenes": [{ "title": "Partida" }] },
+        { "title": "Pruebas y aliados", "chapterGoal": "Enemigos menores, pactos, criaturas, lugares peligrosos.", "scenes": [{ "title": "Prueba 1" }, { "title": "Prueba 2" }] },
+        { "title": "El corazón oscuro", "chapterGoal": "Acercamiento al poder enemigo o a la fuente del mal.", "scenes": [{ "title": "Tentación o miedo" }] },
+        { "title": "Todo se pierde", "chapterGoal": "Derrota aparente; precio mágico o personal.", "scenes": [{ "title": "Noche oscura" }] },
+        { "title": "Renacimiento", "chapterGoal": "Nueva fuerza, objeto, verdad o aliado inesperado.", "scenes": [{ "title": "Elección final" }] },
+        { "title": "Batalla y coste", "chapterGoal": "Confrontación; qué se sacrifica para ganar o sobrevivir.", "scenes": [{ "title": "Clímax" }] },
+        { "title": "Nuevo rey / nuevo orden", "chapterGoal": "Cómo queda el mundo; heridas y esperanza.", "scenes": [{ "title": "Cierre" }] }
+      ]
+    },
+    {
+      "id": "camino-del-heroe",
+      "name": "El camino del héroe",
+      "description": "Arco tipo monomito (Campbell/Vogler): llamada, pruebas, ordeal, recompensa y regreso.",
+      "category": "Ficción (viaje del héroe)",
+      "synopsisHint": "Quién es el héroe en su mundo ordinario, qué le falta, qué fuerza lo llama y qué debe traer al final (elixir literal o figurado).",
+      "wordGoal": 85000,
+      "chapters": [
+        { "title": "Mundo ordinario", "chapterGoal": "Mostrar carencia, deseo o injusticia cotidiana.", "scenes": [{ "title": "Vida habitual" }] },
+        { "title": "Llamada a la aventura", "chapterGoal": "El problema o oportunidad que exige salir de lo conocido.", "scenes": [{ "title": "Incitación" }] },
+        { "title": "Rechazo y compromiso", "chapterGoal": "Miedo, excusas; luego aceptación o empujón hacia la acción.", "scenes": [{ "title": "Umbral emocional" }] },
+        { "title": "Encuentro con el mentor", "chapterGoal": "Herramienta, advertencia o mapa (persona, recuerdo o descubrimiento).", "scenes": [{ "title": "Enseñanza" }] },
+        { "title": "Cruce del primer umbral", "chapterGoal": "Entrar de verdad en el mundo especial; punto sin retorno.", "scenes": [{ "title": "Paso al otro lado" }] },
+        { "title": "Pruebas, aliados y enemigos", "chapterGoal": "Aprender reglas del nuevo mundo; vínculos y rivales.", "scenes": [{ "title": "Prueba" }, { "title": "Aliado o enemigo" }] },
+        { "title": "Aproximación a la cueva profunda", "chapterGoal": "Plan, infiltración o preparación ante el peligro máximo.", "scenes": [{ "title": "Antes del abismo" }] },
+        { "title": "Prueba suprema (ordeal)", "chapterGoal": "Muerte simbólica o literal; todo en juego.", "scenes": [{ "title": "Crisis central" }] },
+        { "title": "Recompensa", "chapterGoal": "Objeto, verdad o poder obtenido; victoria costosa.", "scenes": [{ "title": "Se apodera del premio" }] },
+        { "title": "Camino de regreso", "chapterGoal": "Huida, persecución o urgencia de volver al mundo ordinario.", "scenes": [{ "title": "Carrera hacia casa" }] },
+        { "title": "Resurrección", "chapterGoal": "Última prueba que demuestra el cambio interior.", "scenes": [{ "title": "Clímax final" }] },
+        { "title": "Regreso con el elixir", "chapterGoal": "Qué aporta al mundo ordinario; cierre del arco.", "scenes": [{ "title": "Nueva normalidad" }] }
+      ]
+    },
+    {
+      "id": "thriller",
+      "name": "Thriller",
+      "description": "Tensión sostenida, reloj en marcha, secretos y confrontaciones cada vez más cercanas.",
+      "category": "Thriller",
+      "synopsisHint": "Qué secreto o amenaza arranca la historia; qué pierde el protagonista si falla; el tiempo o el enemigo que aprieta.",
+      "wordGoal": 80000,
+      "chapters": [
+        { "title": "Gancho", "chapterGoal": "Crime, amenaza o descubrimiento que engancha.", "scenes": [{ "title": "Impacto inicial" }] },
+        { "title": "Complicación", "chapterGoal": "Pistas falsas, riesgo personal, autoridades o traidores.", "scenes": [{ "title": "Primera escalada" }] },
+        { "title": "Punto de no retorno", "chapterGoal": "El protagonista no puede volver atrás sin pagar un precio.", "scenes": [{ "title": "Compromiso total" }] },
+        { "title": "Revelaciones", "chapterGoal": "Capas de verdad; el enemigo se acerca o se define.", "scenes": [{ "title": "Giro" }] },
+        { "title": "Todo en juego", "chapterGoal": "Amenaza máxima a seres queridos o al objetivo.", "scenes": [{ "title": "Crisis" }] },
+        { "title": "Confrontación final", "chapterGoal": "Verdad completa y enfrentamiento.", "scenes": [{ "title": "Clímax" }] },
+        { "title": "Resolución", "chapterGoal": "Consecuencias legales, morales o psicológicas.", "scenes": [{ "title": "Cierre tenso o amargo" }] }
+      ]
+    },
+    {
+      "id": "romance",
+      "name": "Romance",
+      "description": "Encuentro, obstáculo interno/externo, crisis de pareja y compromiso emocional.",
+      "category": "Romance",
+      "synopsisHint": "Qué impide la unión (miedo, deber, mentira, distancia); qué aprenden los dos para merecer el final feliz o el cierre honesto.",
+      "wordGoal": 70000,
+      "chapters": [
+        { "title": "Encuentro", "chapterGoal": "Química, contexto y primera fricción.", "scenes": [{ "title": "Meet cute o choque" }] },
+        { "title": "Acercamiento", "chapterGoal": "Deseo creciente; reglas del obstáculo.", "scenes": [{ "title": "Citas o complicidad" }] },
+        { "title": "Punto medio — juntos y frágiles", "chapterGoal": "Falsa victoria o intimidad que no resuelve el conflicto central.", "scenes": [{ "title": "Momento dulce" }] },
+        { "title": "Crisis y separación", "chapterGoal": "Mentira revelada, deber, miedo a vulnerabilidad.", "scenes": [{ "title": "Ruptura" }] },
+        { "title": "Oscuridad / reflexión", "chapterGoal": "Qué debe cambiar cada uno para volver.", "scenes": [{ "title": "Soledad" }] },
+        { "title": "Gran gesto o verdad", "chapterGoal": "Prueba de amor maduro (no solo disculpa).", "scenes": [{ "title": "Reconciliación" }] },
+        { "title": "Compromiso", "chapterGoal": "Final feliz o HEA/HFN según tu tono.", "scenes": [{ "title": "Cierre" }] }
+      ]
+    },
+    {
+      "id": "misterio",
+      "name": "Misterio",
+      "description": "Pista, sospechosos, revelación intermedia y solución que releye el relato.",
+      "category": "Misterio",
+      "synopsisHint": "El crimen o enigma; la lista cerrada o el campo de sospechosos; la pista que el lector podía ver venir al releer.",
+      "wordGoal": 75000,
+      "chapters": [
+        { "title": "El crimen o el enigma", "chapterGoal": "Presentar la escena del misterio y el detective (profesional o accidental).", "scenes": [{ "title": "Escena inicial" }] },
+        { "title": "Investigación — pistas A", "chapterGoal": "Primeras entrevistas y teorías.", "scenes": [{ "title": "Pistas" }] },
+        { "title": "Complicación", "chapterGoal": "Pista falsa o segundo incidente.", "scenes": [{ "title": "Giro investigativo" }] },
+        { "title": "Medio — revelación parcial", "chapterGoal": "Creer saber quién es; preparar el fallo.", "scenes": [{ "title": "Falsa conclusión" }] },
+        { "title": "Peligro", "chapterGoal": "El investigador se convierte en objetivo.", "scenes": [{ "title": "Amenaza" }] },
+        { "title": "Solución", "chapterGoal": "Exposición del método y del culpable; motivo creíble.", "scenes": [{ "title": "Confrontación final" }] },
+        { "title": "Desenlace", "chapterGoal": "Justicia, ironía o coste moral.", "scenes": [{ "title": "Cierre" }] }
+      ]
+    },
+    {
+      "id": "historica",
+      "name": "Novela histórica",
+      "description": "Época vívida, conflicto político o personal, y personajes atrapados por su tiempo.",
+      "category": "Histórica",
+      "synopsisHint": "Año/lugar, qué norma social o política oprime al protagonista y qué elección histórica personal enfrenta.",
+      "wordGoal": 95000,
+      "chapters": [
+        { "title": "La época y el lugar", "chapterGoal": "Sensorialidad, jerarquías, lenguaje y deseos reprimidos.", "scenes": [{ "title": "Vida bajo las reglas" }] },
+        { "title": "La grieta", "chapterGoal": "Guerra, rumor, ley nueva o deseo prohibido.", "scenes": [{ "title": "Incitación histórica" }] },
+        { "title": "Alianzas", "chapterGoal": "Familia, facción, amor o deber.", "scenes": [{ "title": "Lealtades" }] },
+        { "title": "El precio del honor", "chapterGoal": "Decisiones con consecuencias públicas.", "scenes": [{ "title": "Compromiso social" }] },
+        { "title": "Crisis", "chapterGoal": "Batalla, juicio, huida o traición propia del periodo.", "scenes": [{ "title": "Colapso" }] },
+        { "title": "Consecuencias", "chapterGoal": "Nuevo estatus; memoria de lo vivido.", "scenes": [{ "title": "Epílogo histórico" }] }
+      ]
+    },
+    {
+      "id": "memorias-ensayo",
+      "name": "Memorias / ensayo narrativo",
+      "description": "Capítulos temáticos para no ficción personal o reflexiva.",
+      "category": "No ficción",
+      "wordGoal": 60000,
+      "chapters": [
+        { "title": "Origen y voz", "chapterGoal": "Por qué cuentas esto ahora; tono y pacto con el lector.", "scenes": [{ "title": "Manifiesto breve" }] },
+        { "title": "Eje central", "chapterGoal": "El tema o período que sostiene el libro.", "scenes": [{ "title": "Núcleo 1" }] },
+        { "title": "Contradicciones", "chapterGoal": "Dudas, errores, versiones distintas.", "scenes": [{ "title": "Núcleo 2" }] },
+        { "title": "Contexto amplio", "chapterGoal": "Historia, cultura o ideas que enmarcan tu experiencia.", "scenes": [{ "title": "Panorama" }] },
+        { "title": "Cierre abierto", "chapterGoal": "Qué cambió en ti; qué queda en el aire.", "scenes": [{ "title": "Despedida" }] }
+      ]
+    }
+  ]
+}
