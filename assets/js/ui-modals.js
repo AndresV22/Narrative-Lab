@@ -71,7 +71,12 @@ export function renderSearchModal(app) {
         app.state.bookId = bookId;
         if (kind === 'synopsis') app.setView('synopsis');
         else if (kind === 'prologue') app.setView('prologue');
-        else if (kind === 'event') app.setView('timeline');
+        else if (kind === 'historicalContext') app.setView('historicalContext');
+        else if (kind === 'worldRules') app.setView('worldRules');
+        else if (kind === 'event') {
+          app.state.timelineEventId = id;
+          app.setView('timeline');
+        }
         else if (kind === 'extra' && id) app.openExtraEditor(id);
         else if (kind === 'note') {
           app.state.noteId = id;
@@ -188,4 +193,39 @@ export function renderImportModal(app) {
     removeDismiss();
     app.applyImport('merge-new');
   });
+}
+
+/**
+ * Vista ampliada de una imagen (carátula, personaje, etc.).
+ * @param {import('./app.js').App} app
+ * @param {string} src
+ * @param {string} [title]
+ */
+export function renderImageLightbox(app, src, title = '') {
+  const host = app.els.modalHost;
+  host.innerHTML = `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" data-img-backdrop>
+      <div class="max-w-5xl w-full max-h-[95vh] flex flex-col gap-3">
+        <div class="flex justify-between items-center gap-4">
+          <p class="text-sm text-slate-300 truncate">${escapeHtml(title)}</p>
+          <button type="button" data-img-close class="shrink-0 px-3 py-1.5 rounded-lg border border-nl-border text-sm text-slate-300 hover:bg-nl-raised">Cerrar</button>
+        </div>
+        <div class="rounded-xl overflow-hidden border border-nl-border bg-nl-bg flex justify-center items-center min-h-0 flex-1">
+          <img src="" alt="" class="max-h-[85vh] max-w-full object-contain" data-img-full />
+        </div>
+      </div>
+    </div>
+  `;
+  const img = /** @type {HTMLImageElement|null} */ (host.querySelector('[data-img-full]'));
+  if (img) img.src = src;
+  const backdrop = /** @type {HTMLElement|null} */ (host.querySelector('[data-img-backdrop]'));
+  function close() {
+    removeDismiss();
+    host.innerHTML = '';
+  }
+  const removeDismiss = attachModalDismiss(/** @type {HTMLElement} */ (backdrop), close);
+  backdrop?.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+  host.querySelector('[data-img-close]')?.addEventListener('click', close);
 }

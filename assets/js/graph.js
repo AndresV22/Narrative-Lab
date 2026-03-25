@@ -90,13 +90,17 @@ export function mountGraph(container, book, options) {
 
   const rels = listRelationships(book);
   for (const r of rels) {
+    if (r.disabled === true) continue;
     const fromKey = `${r.from.kind}:${r.from.id}`;
     const toKey = `${r.to.kind}:${r.to.id}`;
     const a = nodes.get(fromKey);
     const b = nodes.get(toKey);
     if (!a || !b) continue;
-    if (mode === 'characters') continue;
-    if (!includeEv && r.type === 'event_event') continue;
+    if (mode === 'characters') {
+      if (r.type !== 'character_character') continue;
+    } else if (!includeEv && r.type === 'event_event') {
+      continue;
+    }
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', String(a.x));
     line.setAttribute('y1', String(a.y));
@@ -105,6 +109,11 @@ export function mountGraph(container, book, options) {
     line.setAttribute('stroke', '#3f4f63');
     line.setAttribute('stroke-width', '1.2');
     line.setAttribute('opacity', '0.85');
+    const tip =
+      (typeof r.description === 'string' && r.description.trim()) ||
+      (r.meta && typeof r.meta.role === 'string' && r.meta.role) ||
+      '';
+    if (tip) line.setAttribute('title', tip.slice(0, 200));
     svg.appendChild(line);
   }
 

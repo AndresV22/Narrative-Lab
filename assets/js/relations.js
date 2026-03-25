@@ -35,7 +35,10 @@ export function removeRelationship(book, id) {
  * @param {string} characterId
  * @param {string} chapterId
  */
-export function linkCharacterToChapter(book, characterId, chapterId) {
+/**
+ * @param {{ description?: string }} [opts]
+ */
+export function linkCharacterToChapter(book, characterId, chapterId, opts = {}) {
   const exists = listRelationships(book).some(
     (r) =>
       r.type === 'character_chapter' &&
@@ -50,7 +53,8 @@ export function linkCharacterToChapter(book, characterId, chapterId) {
     createRelationship(
       'character_chapter',
       { kind: 'character', id: characterId },
-      { kind: 'chapter', id: chapterId }
+      { kind: 'chapter', id: chapterId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
     )
   );
 }
@@ -61,7 +65,10 @@ export function linkCharacterToChapter(book, characterId, chapterId) {
  * @param {string} chapterId
  * @param {string} sceneId
  */
-export function linkCharacterToScene(book, characterId, chapterId, sceneId) {
+/**
+ * @param {{ description?: string }} [opts]
+ */
+export function linkCharacterToScene(book, characterId, chapterId, sceneId, opts = {}) {
   const key = `${characterId}|${chapterId}|${sceneId}`;
   const exists = listRelationships(book).some((r) => {
     if (r.type !== 'character_scene') return false;
@@ -74,7 +81,10 @@ export function linkCharacterToScene(book, characterId, chapterId, sceneId) {
       'character_scene',
       { kind: 'character', id: characterId },
       { kind: 'scene', id: sceneId },
-      { meta: { chapterId, key } }
+      {
+        description: typeof opts.description === 'string' ? opts.description : '',
+        meta: { chapterId, key },
+      }
     )
   );
 }
@@ -84,7 +94,59 @@ export function linkCharacterToScene(book, characterId, chapterId, sceneId) {
  * @param {string} eventA
  * @param {string} eventB
  */
-export function linkEventToEvent(book, eventA, eventB) {
+/**
+ * Etiquetas para vínculos entre personajes (valor en meta.role).
+ */
+export const CHARACTER_LINK_ROLE_OPTIONS = [
+  { value: 'padre', label: 'Padre' },
+  { value: 'madre', label: 'Madre' },
+  { value: 'hijo', label: 'Hijo / hija' },
+  { value: 'hermano', label: 'Hermano / hermana' },
+  { value: 'mejores_amigos', label: 'Mejores amigos' },
+  { value: 'amantes', label: 'Amantes' },
+  { value: 'novios', label: 'Novios' },
+  { value: 'otro', label: 'Otro (usar descripción)' },
+];
+
+/**
+ * @param {import('./types.js').Book} book
+ * @param {string} fromCharacterId
+ * @param {string} toCharacterId
+ * @param {{ role?: string, description?: string, disabled?: boolean }} [opts]
+ */
+export function linkCharacterToCharacter(book, fromCharacterId, toCharacterId, opts = {}) {
+  if (fromCharacterId === toCharacterId) return;
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'character_character' &&
+      r.from.kind === 'character' &&
+      r.to.kind === 'character' &&
+      ((r.from.id === fromCharacterId && r.to.id === toCharacterId) ||
+        (r.from.id === toCharacterId && r.to.id === fromCharacterId))
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'character_character',
+      { kind: 'character', id: fromCharacterId },
+      { kind: 'character', id: toCharacterId },
+      {
+        description: typeof opts.description === 'string' ? opts.description : '',
+        disabled: opts.disabled === true,
+        meta: { role: typeof opts.role === 'string' ? opts.role : '' },
+      }
+    )
+  );
+}
+
+/**
+ * @param {import('./types.js').Book} book
+ * @param {string} eventA
+ * @param {string} eventB
+ * @param {{ description?: string }} [opts]
+ */
+export function linkEventToEvent(book, eventA, eventB, opts = {}) {
   const exists = listRelationships(book).some(
     (r) =>
       r.type === 'event_event' &&
@@ -96,7 +158,10 @@ export function linkEventToEvent(book, eventA, eventB) {
     createRelationship(
       'event_event',
       { kind: 'event', id: eventA },
-      { kind: 'event', id: eventB }
+      { kind: 'event', id: eventB },
+      {
+        description: typeof opts?.description === 'string' ? opts.description : '',
+      }
     )
   );
 }

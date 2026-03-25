@@ -4,7 +4,7 @@
 
 import { escapeHtml } from '../../utils.js';
 import { toolbarHtml } from '../../editor.js';
-import { getAutosaveMs, getProgressMode, getSpellcheckEnabled } from '../../prefs.js';
+import { getAutosaveMs, getProgressMode, getSpellcheckEnabled, getSnapshotIntervalMinutes } from '../../prefs.js';
 import { WRITING_GUIDE_ARTICLES, getWritingGuideArticle } from '../../writing-guide-content.js';
 
 /**
@@ -83,6 +83,8 @@ export function renderAppSettingsPanel() {
   const ms = opts.reduce((a, b) => (Math.abs(b - rawMs) < Math.abs(a - rawMs) ? b : a), 4000);
   const pm = getProgressMode();
   const sc = getSpellcheckEnabled();
+  const snapMin = getSnapshotIntervalMinutes();
+  const snapOpts = [0, 5, 15, 30, 60, 120];
   return `
     <div class="max-w-xl mx-auto p-6 space-y-6">
       <h2 class="text-lg font-semibold text-white">Ajustes</h2>
@@ -100,6 +102,16 @@ export function renderAppSettingsPanel() {
         <p class="text-xs text-nl-muted">Frecuencia con la que se guarda el workspace en el navegador (IndexedDB).</p>
         <select data-app-autosave class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm text-slate-200">
           ${opts.map((v) => `<option value="${v}" ${ms === v ? 'selected' : ''}>Cada ${v / 1000} s</option>`).join('')}
+        </select>
+      </section>
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+        <h3 class="text-sm font-medium text-slate-200">Snapshots automáticos</h3>
+        <p class="text-xs text-nl-muted">Crea un snapshot del libro abierto cada cierto tiempo (igual que el botón de la barra superior).</p>
+        <select data-app-snapshot-interval class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm text-slate-200">
+          ${snapOpts.map((m) => {
+            const label = m === 0 ? 'Desactivado' : `Cada ${m} min`;
+            return `<option value="${m}" ${snapMin === m ? 'selected' : ''}>${label}</option>`;
+          }).join('')}
         </select>
       </section>
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">

@@ -164,6 +164,9 @@ export function createEmptyBook(overrides = {}) {
     narratorType: 'Tercera persona',
     status: 'Borrador',
     synopsis: '',
+    historicalContext: '',
+    worldRules: '',
+    coverImageDataUrl: '',
     prologue: '',
     epilogue: '',
     extras: '',
@@ -207,6 +210,9 @@ export function normalizeBook(raw) {
     narratorType: typeof b.narratorType === 'string' ? b.narratorType : 'Tercera persona',
     status: typeof b.status === 'string' ? b.status : 'Borrador',
     synopsis: typeof b.synopsis === 'string' ? b.synopsis : '',
+    historicalContext: typeof b.historicalContext === 'string' ? b.historicalContext : '',
+    worldRules: typeof b.worldRules === 'string' ? b.worldRules : '',
+    coverImageDataUrl: typeof b.coverImageDataUrl === 'string' ? b.coverImageDataUrl : '',
     prologue: typeof b.prologue === 'string' ? b.prologue : '',
     epilogue: typeof b.epilogue === 'string' ? b.epilogue : '',
     extras: typeof b.extras === 'string' ? b.extras : '',
@@ -323,12 +329,20 @@ function normalizeRelationship(raw) {
   const r = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
   const from = r.from && typeof r.from === 'object' ? /** @type {Record<string, unknown>} */ (r.from) : {};
   const to = r.to && typeof r.to === 'object' ? /** @type {Record<string, unknown>} */ (r.to) : {};
+  const metaRaw = r.meta && typeof r.meta === 'object' && r.meta !== null ? /** @type {Record<string, unknown>} */ (r.meta) : {};
+  const meta = {
+    ...metaRaw,
+    role: typeof metaRaw.role === 'string' ? metaRaw.role : '',
+  };
   return createRelationship(
     typeof r.type === 'string' ? r.type : 'character_chapter',
     { kind: String(from.kind || 'character'), id: String(from.id || '') },
     { kind: String(to.kind || 'chapter'), id: String(to.id || '') },
     {
       id: typeof r.id === 'string' ? r.id : uuid(),
+      description: typeof r.description === 'string' ? r.description : '',
+      disabled: r.disabled === true,
+      meta,
     }
   );
 }

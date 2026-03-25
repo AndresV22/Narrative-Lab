@@ -4,7 +4,13 @@
 
 import '../css/app.css';
 import { loadWorkspace, scheduleSave, flushSave, setSaveStatusCallback, configureAutosaveDelay } from './storage.js';
-import { getAutosaveMs, getProgressMode, getSpellcheckEnabled, setLastExportNow } from './prefs.js';
+import {
+  getAutosaveMs,
+  getProgressMode,
+  getSpellcheckEnabled,
+  setLastExportNow,
+  getSnapshotIntervalMinutes,
+} from './prefs.js';
 import {
   createEmptyBook,
   createHighlight,
@@ -21,7 +27,9 @@ import {
   renderTemplateModal,
   renderImportModal,
   updateHeaderSnapshotButton,
+  saveSnapshotFromHeader,
 } from './ui.js';
+import { showToast } from './toast.js';
 import { RichEditor, bindToolbar, computeEditorRealtimeMetrics } from './editor.js';
 import {
   downloadWorkspaceJson,
@@ -44,6 +52,7 @@ import {
  * @property {boolean} rightOpen
  * @property {'characters'|'chars_chapters'|'all'} [graphMode]
  * @property {string|null} [guideArticleId]
+ * @property {string|null} [timelineEventId]
  */
 
 export class App {
@@ -63,7 +72,10 @@ export class App {
       rightOpen: true,
       graphMode: 'chars_chapters',
       guideArticleId: null,
+      timelineEventId: null,
     };
+    /** @type {ReturnType<typeof setInterval> | null} */
+    this.autoSnapshotTimer = null;
     /** @type {import('./editor.js').EditorRealtimeMetrics | null} */
     this.editorMetrics = null;
     /** @type {{ destroy: () => void } | null} */
@@ -153,6 +165,8 @@ export class App {
 
     let initial = '';
     if (kind === 'synopsis') initial = book.synopsis || '';
+    else if (kind === 'historicalContext') initial = book.historicalContext || '';
+    else if (kind === 'worldRules') initial = book.worldRules || '';
     else if (kind === 'prologue') initial = book.prologue || '';
     else if (kind === 'epilogue') initial = book.epilogue || '';
     else if (kind === 'extras') initial = book.extras || '';
@@ -212,6 +226,8 @@ export class App {
     const book = this.getCurrentBook();
     if (!book) return;
     if (kind === 'synopsis') book.synopsis = html;
+    else if (kind === 'historicalContext') book.historicalContext = html;
+    else if (kind === 'worldRules') book.worldRules = html;
     else if (kind === 'prologue') book.prologue = html;
     else if (kind === 'epilogue') book.epilogue = html;
     else if (kind === 'extras') book.extras = html;
@@ -260,6 +276,7 @@ export class App {
       this.state.guideArticleId = null;
     }
     this.state.view = view;
+    if (view !== 'timeline') this.state.timelineEventId = null;
     if (view !== 'character') this.state.characterId = null;
     if (view !== 'note') this.state.noteId = null;
     if (view === 'chapters') {
@@ -284,6 +301,7 @@ export class App {
     this.state.view = 'writingGuide';
     this.state.characterId = null;
     this.state.noteId = null;
+    this.state.timelineEventId = null;
     this.state.chapterId = null;
     this.state.sceneId = null;
     this.refresh();
@@ -306,6 +324,21 @@ export class App {
     renderRightPanel(this);
     bindMainInteractions(this);
     updateHeaderSnapshotButton(this);
+    this.syncAutoSnapshotTimer();
+  }
+
+  /** Intervalo de snapshot automático (solo con libro abierto). */
+  syncAutoSnapshotTimer() {
+    if (this.autoSnapshotTimer) {
+      clearInterval(this.autoSnapshotTimer);
+      this.autoSnapshotTimer = null;
+    }
+    const book = this.getCurrentBook();
+    const mins = getSnapshotIntervalMinutes();
+    if (!book || mins <= 0) return;
+    this.autoSnapshotTimer = setInterval(() => {
+      saveSnapshotFromHeader(this);
+    }, mins * 60 * 1000);
   }
 
   createBook() {
@@ -330,6 +363,7 @@ export class App {
     this.state.sceneId = null;
     this.state.characterId = null;
     this.state.noteId = null;
+    this.state.timelineEventId = null;
     this.state.guideArticleId = null;
     this.refresh();
   }
@@ -388,9 +422,11 @@ export class App {
     if (!ch) return;
     if (!confirm(`¿Eliminar el personaje «${ch.name || 'Sin nombre'}»?`)) return;
     book.characters = book.characters.filter((c) => c.id !== characterId);
-    book.relationships = (book.relationships || []).filter(
-      (r) => !(r.from.kind === 'character' && r.from.id === characterId)
-    );
+    book.relationships = (book.relationships || []).filter((r) => {
+      if (r.from.kind === 'character' && r.from.id === characterId) return false;
+      if (r.to.kind === 'character' && r.to.id === characterId) return false;
+      return true;
+    });
     if (this.state.characterId === characterId) this.state.characterId = null;
     this.persist();
     this.refresh();
@@ -403,6 +439,7 @@ export class App {
     const book = this.getCurrentBook();
     if (!book) return;
     book.events = (book.events || []).filter((e) => e.id !== eventId);
+    if (this.state.timelineEventId === eventId) this.state.timelineEventId = null;
     book.relationships = (book.relationships || []).filter(
       (r) =>
         !(
@@ -574,6 +611,8 @@ export class App {
     this.els = mountShell(root, this);
     setSaveStatusCallback((status) => {
       if (this.els) setSaveBadge(this.els.saveStatus, status);
+      if (status === 'saved') showToast('Cambios guardados correctamente', 'success');
+      if (status === 'error') showToast('Error al guardar los datos', 'error');
     });
 
     this.refresh();

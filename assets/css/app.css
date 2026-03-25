@@ -12,6 +12,18 @@
 
 /* Narrative Lab — capa fina sobre Tailwind */
 
+.nl-toast-host {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.nl-toast-host .nl-toast {
+  pointer-events: auto;
+}
+
 html {
   color-scheme: dark;
 }

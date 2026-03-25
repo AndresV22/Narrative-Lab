@@ -6,7 +6,7 @@ import { normalizeSearch, snippet, stripHtml } from './utils.js';
 
 /**
  * @typedef {Object} SearchHit
- * @property {'chapter'|'scene'|'note'|'synopsis'|'prologue'|'event'|'extra'} kind
+ * @property {'chapter'|'scene'|'note'|'synopsis'|'prologue'|'event'|'extra'|'historicalContext'|'worldRules'} kind
  * @property {string} bookId
  * @property {string} bookName
  * @property {string} id
@@ -47,6 +47,28 @@ export function searchInBook(book, query) {
       id: 'prologue',
       label: 'Prólogo',
       excerpt: snippet(stripHtml(book.prologue)),
+    });
+  }
+
+  if (match(book.historicalContext)) {
+    hits.push({
+      kind: 'historicalContext',
+      bookId: book.id,
+      bookName: book.name,
+      id: 'historicalContext',
+      label: 'Contexto',
+      excerpt: snippet(stripHtml(book.historicalContext)),
+    });
+  }
+
+  if (match(book.worldRules)) {
+    hits.push({
+      kind: 'worldRules',
+      bookId: book.id,
+      bookName: book.name,
+      id: 'worldRules',
+      label: 'Reglas del mundo',
+      excerpt: snippet(stripHtml(book.worldRules)),
     });
   }
 

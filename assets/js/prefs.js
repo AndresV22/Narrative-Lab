@@ -6,6 +6,7 @@ const KEY_AUTOSAVE = 'nl_autosave_ms';
 const KEY_PROGRESS = 'nl_progress_mode';
 const KEY_LAST_EXPORT = 'nl_last_export_iso';
 const KEY_SPELLCHECK = 'nl_spellcheck';
+const KEY_SNAPSHOT_INTERVAL = 'nl_snapshot_interval_min';
 
 /** @typedef {'boundary'|'debounce'} ProgressMode */
 
@@ -99,4 +100,22 @@ export function getSpellcheckEnabled() {
  */
 export function setSpellcheckEnabled(enabled) {
   localStorage.setItem(KEY_SPELLCHECK, enabled ? '1' : '0');
+}
+
+/**
+ * Minutos entre snapshots automáticos (0 = desactivado).
+ * @returns {number}
+ */
+export function getSnapshotIntervalMinutes() {
+  const v = localStorage.getItem(KEY_SNAPSHOT_INTERVAL);
+  const n = v ? parseInt(v, 10) : 0;
+  if (Number.isNaN(n)) return 0;
+  return Math.min(24 * 60, Math.max(0, n));
+}
+
+/**
+ * @param {number} minutes
+ */
+export function setSnapshotIntervalMinutes(minutes) {
+  localStorage.setItem(KEY_SNAPSHOT_INTERVAL, String(minutes));
 }

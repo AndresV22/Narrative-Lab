@@ -4,6 +4,7 @@
 
 import { CHARACTER_ROLES, characterRoleLabel } from '../../character-roles.js';
 import { escapeHtml } from '../../utils.js';
+import { listRelationships, CHARACTER_LINK_ROLE_OPTIONS } from '../../relations.js';
 
 /**
  * @param {import('../../types.js').Book} book
@@ -42,16 +43,47 @@ export function renderCharacterList(book, _app) {
  * @param {import('../../types.js').Book} book
  * @param {import('../../types.js').Character} ch
  */
-export function renderCharacterForm(_book, ch, _app) {
+export function renderCharacterForm(book, ch, _app) {
+  const rels = listRelationships(book).filter(
+    (r) =>
+      r.type === 'character_character' &&
+      r.from.kind === 'character' &&
+      r.to.kind === 'character' &&
+      (r.from.id === ch.id || r.to.id === ch.id)
+  );
+  const rows = rels
+    .map((r) => {
+      const otherId = r.from.id === ch.id ? r.to.id : r.from.id;
+      const other = book.characters.find((c) => c.id === otherId);
+      const roleVal = r.meta && typeof r.meta.role === 'string' ? r.meta.role : '';
+      const roleLabel =
+        CHARACTER_LINK_ROLE_OPTIONS.find((o) => o.value === roleVal)?.label || roleVal || '—';
+      return `
+        <li class="flex flex-wrap gap-2 items-center justify-between text-sm border border-nl-border rounded-lg px-3 py-2 bg-nl-surface/50">
+          <span class="text-slate-300">${escapeHtml(other?.name || otherId)} — ${escapeHtml(roleLabel)}</span>
+          <button type="button" data-cc-del-rel="${r.id}" class="text-red-400 text-xs hover:text-red-300">Quitar</button>
+        </li>
+      `;
+    })
+    .join('');
+  const otherOptions = book.characters
+    .filter((c) => c.id !== ch.id)
+    .map((c) => `<option value="${c.id}">${escapeHtml(c.name || 'Sin nombre')}</option>`)
+    .join('');
+  const roleOpts =
+    `<option value="">Tipo de vínculo</option>` +
+    CHARACTER_LINK_ROLE_OPTIONS.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('');
+
   return `
     <div class="max-w-2xl mx-auto p-6 space-y-3">
       <button type="button" data-back-char class="text-sm text-indigo-400">← Personajes</button>
       <div class="flex gap-4">
         <div class="shrink-0">
           <div class="w-24 h-24 rounded-xl border border-nl-border bg-nl-raised overflow-hidden">
-            ${ch.imageDataUrl ? `<img src="${ch.imageDataUrl}" alt="" class="w-full h-full object-cover" data-char-img/>` : '<div class="w-full h-full flex items-center justify-center text-xs text-nl-muted">Sin imagen</div>'}
+            ${ch.imageDataUrl ? `<img src="${ch.imageDataUrl}" alt="" class="w-full h-full object-cover cursor-pointer" data-char-img/>` : '<div class="w-full h-full flex items-center justify-center text-xs text-nl-muted">Sin imagen</div>'}
           </div>
           <input type="file" accept="image/*" data-char-file class="mt-2 text-xs text-nl-muted" />
+          ${ch.imageDataUrl ? `<button type="button" data-char-img-zoom class="mt-1 text-xs text-indigo-400 hover:text-indigo-300">Ver imagen</button>` : ''}
         </div>
         <div class="flex-1 space-y-2">
           <label class="text-xs text-nl-muted">Nombre</label>
@@ -77,6 +109,26 @@ export function renderCharacterForm(_book, ch, _app) {
       <textarea data-f="conflicts" rows="2" class="w-full bg-nl-raised border border-nl-border rounded px-3 py-2 text-sm">${escapeHtml(ch.conflicts)}</textarea>
       <label class="text-xs text-nl-muted">Arco narrativo</label>
       <textarea data-f="narrativeArc" rows="3" class="w-full bg-nl-raised border border-nl-border rounded px-3 py-2 text-sm">${escapeHtml(ch.narrativeArc)}</textarea>
+
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+        <h3 class="text-sm font-medium text-slate-200">Relaciones con otros personajes</h3>
+        <ul class="space-y-1">${rows || '<li class="text-nl-muted text-xs">Ninguna aún.</li>'}</ul>
+        <div class="flex flex-col sm:flex-row flex-wrap gap-2">
+          <select data-cc-other class="flex-1 min-w-[140px] bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+            <option value="">Otro personaje</option>
+            ${otherOptions}
+          </select>
+          <select data-cc-role class="flex-1 min-w-[140px] bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+            ${roleOpts}
+          </select>
+          <button type="button" data-cc-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Añadir vínculo</button>
+        </div>
+        <div>
+          <label class="text-xs text-nl-muted">Nota sobre el vínculo (opcional)</label>
+          <textarea data-cc-desc rows="2" class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm mt-1" placeholder="Ej. detalle del parentesco…"></textarea>
+        </div>
+      </section>
+
       <button type="button" data-save-char class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm">Guardar</button>
     </div>
   `;

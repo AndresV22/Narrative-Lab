@@ -128,8 +128,13 @@ export function renderSidebar(app) {
         <ul class="space-y-1">
           ${ws.books.map((b) => `
             <li>
-              <button type="button" data-open-book="${escapeHtml(b.id)}" class="w-full text-left px-3 py-2 rounded-lg hover:bg-nl-raised text-sm text-slate-200 truncate">
-                ${escapeHtml(b.name)}
+              <button type="button" data-open-book="${escapeHtml(b.id)}" class="w-full text-left px-3 py-2 rounded-lg hover:bg-nl-raised text-sm text-slate-200 flex items-center gap-2 min-w-0">
+                ${
+                  b.coverImageDataUrl
+                    ? `<span class="w-10 h-14 shrink-0 rounded border border-nl-border overflow-hidden bg-nl-raised"><img src="${b.coverImageDataUrl}" alt="" class="w-full h-full object-cover"/></span>`
+                    : '<span class="w-10 h-14 shrink-0 rounded border border-dashed border-nl-border bg-nl-raised/40"></span>'
+                }
+                <span class="truncate">${escapeHtml(b.name)}</span>
               </button>
             </li>
           `).join('') || '<li class="px-3 py-4 text-sm text-nl-muted">Aún no hay libros.</li>'}
@@ -194,14 +199,16 @@ export function renderSidebar(app) {
     <div class="p-2 space-y-0.5 nl-scroll overflow-y-auto flex-1 min-h-0" data-sidebar-nav>
       <p class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-nl-muted">Plan</p>
       ${nav('synopsis', 'Sinopsis')}
+      ${nav('historicalContext', 'Contexto')}
+      ${nav('worldRules', 'Reglas')}
       ${nav('prologue', 'Prólogo')}
       ${nav('chapters', 'Capítulos y escenas')}
       ${nav('acts', 'Actos')}
       ${nav('characters', 'Personajes')}
       ${nav('timeline', 'Línea de tiempo')}
-      ${nav('notes', 'Notas')}
       ${nav('extras', 'Extras')}
       ${nav('epilogue', 'Epílogo')}
+      ${nav('notes', 'Notas')}
       <p class="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-nl-muted">Herramientas</p>
       ${nav('highlights', 'Frases destacadas')}
       <button type="button" data-nav="analysis" class="nav-item w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${

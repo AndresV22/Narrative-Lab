@@ -71,7 +71,7 @@
  */
 
 /**
- * @typedef {'character_chapter'|'character_scene'|'event_event'} RelationshipType
+ * @typedef {'character_chapter'|'character_scene'|'event_event'|'character_character'} RelationshipType
  */
 
 /**
@@ -80,6 +80,9 @@
  * @property {RelationshipType|string} type
  * @property {{ kind: string, id: string }} from
  * @property {{ kind: string, id: string }} to
+ * @property {string} [description]
+ * @property {boolean} [disabled]
+ * @property {{ role?: string } & Record<string, unknown>} [meta]
  */
 
 /**
@@ -110,6 +113,9 @@
  * @property {string} narratorType
  * @property {string} status
  * @property {string} synopsis
+ * @property {string} historicalContext
+ * @property {string} worldRules
+ * @property {string} coverImageDataUrl
  * @property {string} prologue
  * @property {string} epilogue
  * @property {string} extras

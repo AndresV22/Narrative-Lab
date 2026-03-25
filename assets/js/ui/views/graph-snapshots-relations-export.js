@@ -3,7 +3,46 @@
  */
 
 import { escapeHtml, sortByOrder } from '../../utils.js';
-import { listRelationships } from '../../relations.js';
+import { listRelationships, CHARACTER_LINK_ROLE_OPTIONS } from '../../relations.js';
+
+/**
+ * @param {import('../../types.js').Book} book
+ * @param {string} kind
+ * @param {string} id
+ */
+function entityLabel(book, kind, id) {
+  if (kind === 'character') {
+    const c = book.characters.find((x) => x.id === id);
+    return c?.name || id;
+  }
+  if (kind === 'chapter') {
+    const c = book.chapters.find((x) => x.id === id);
+    return c?.title || id;
+  }
+  if (kind === 'event') {
+    const e = (book.events || []).find((x) => x.id === id);
+    return e?.title || id;
+  }
+  if (kind === 'scene') {
+    for (const ch of book.chapters || []) {
+      const sc = ch.scenes.find((s) => s.id === id);
+      if (sc) return `${ch.title} · ${sc.title}`;
+    }
+    return id;
+  }
+  return id;
+}
+
+/**
+ * @param {string} t
+ */
+function relTypeLabel(t) {
+  if (t === 'character_chapter') return 'Personaje → Capítulo';
+  if (t === 'character_scene') return 'Personaje → Escena';
+  if (t === 'event_event') return 'Evento ↔ Evento';
+  if (t === 'character_character') return 'Personaje ↔ Personaje';
+  return String(t);
+}
 
 /**
  * @param {string} iso
@@ -90,19 +129,117 @@ export function renderRelations(book, _app) {
   const chars = book.characters || [];
   const chapters = sortByOrder(book.chapters || [], 'order');
   const events = book.events || [];
+  const charOpts = chars.map((c) => `<option value="${c.id}">${escapeHtml(c.name || 'Sin nombre')}</option>`).join('');
+  const chOpts = chapters.map((c) => `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('');
+  const evOpts = events.map((e) => `<option value="${e.id}">${escapeHtml(e.title || 'Evento')}</option>`).join('');
+  const roleOpts = CHARACTER_LINK_ROLE_OPTIONS.map(
+    (o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`
+  ).join('');
+
+  const relRows = listRelationships(book)
+    .map((r) => {
+      const a = entityLabel(book, r.from.kind, r.from.id);
+      const b = entityLabel(book, r.to.kind, r.to.id);
+      const desc = typeof r.description === 'string' ? r.description : '';
+      return `
+        <li class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-2">
+          <div class="flex justify-between gap-2 items-start">
+            <div>
+              <span class="text-[10px] uppercase tracking-wider text-indigo-300/90">${escapeHtml(relTypeLabel(r.type))}</span>
+              <p class="text-sm text-slate-200 mt-1">${escapeHtml(a)} → ${escapeHtml(b)}</p>
+            </div>
+            <button type="button" data-rel-del="${r.id}" class="text-red-400 text-sm shrink-0">✕</button>
+          </div>
+          <label class="block text-[10px] text-nl-muted">Descripción (por qué están relacionados)</label>
+          <textarea data-rel-desc="${r.id}" rows="2" class="w-full text-xs bg-nl-bg border border-nl-border rounded px-2 py-1.5 text-slate-200">${escapeHtml(desc)}</textarea>
+          <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" data-rel-visible="${r.id}" class="rounded border-nl-border" ${r.disabled ? '' : 'checked'} />
+            <span>Visible en el grafo</span>
+          </label>
+        </li>
+      `;
+    })
+    .join('');
+
   return `
     <div class="max-w-3xl mx-auto p-6 space-y-6">
-      <h2 class="text-lg font-semibold text-white">Relaciones</h2>
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 class="text-lg font-semibold text-white">Relaciones</h2>
+        <button type="button" data-rel-open-wizard class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white">+ Nueva relación</button>
+      </div>
+
+      <div data-rel-modal class="fixed inset-0 z-50 hidden bg-black/60 p-4 items-center justify-center">
+        <div class="max-w-lg w-full rounded-xl border border-nl-border bg-nl-surface p-6 max-h-[90vh] overflow-y-auto nl-scroll" data-rel-modal-panel role="dialog" aria-modal="true" aria-labelledby="rel-wizard-title">
+          <h3 id="rel-wizard-title" class="text-lg font-semibold text-white mb-2">Nueva relación</h3>
+          <div data-rel-wiz-type class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button type="button" data-rel-wiz-pick="pc" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Personaje ↔ Capítulo</button>
+            <button type="button" data-rel-wiz-pick="ps" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Personaje ↔ Escena</button>
+            <button type="button" data-rel-wiz-pick="ee" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Evento ↔ Evento</button>
+            <button type="button" data-rel-wiz-pick="cc" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Personaje ↔ Personaje</button>
+          </div>
+          <div data-rel-wiz-form class="hidden space-y-3 mt-4">
+            <button type="button" data-rel-wiz-back class="text-sm text-indigo-400 hover:text-indigo-300">← Elegir otro tipo</button>
+            <div data-rel-wiz-panel-pc class="hidden space-y-2">
+              <select data-wz-pc-char class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Personaje</option>${charOpts}
+              </select>
+              <select data-wz-pc-ch class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Capítulo</option>${chOpts}
+              </select>
+              <textarea data-wz-pc-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-pc-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-ps class="hidden space-y-2">
+              <select data-wz-ps-char class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Personaje</option>${charOpts}
+              </select>
+              <select data-wz-ps-ch class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Capítulo</option>${chOpts}
+              </select>
+              <select data-wz-ps-sc class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Escena</option>
+              </select>
+              <textarea data-wz-ps-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-ps-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-ee class="hidden space-y-2">
+              <select data-wz-ee-a class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Evento A</option>${evOpts}
+              </select>
+              <select data-wz-ee-b class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Evento B</option>${evOpts}
+              </select>
+              <textarea data-wz-ee-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-ee-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-cc class="hidden space-y-2">
+              <select data-wz-cc-a class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Personaje A</option>${charOpts}
+              </select>
+              <select data-wz-cc-b class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Personaje B</option>${charOpts}
+              </select>
+              <select data-wz-cc-role class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Tipo de vínculo</option>${roleOpts}
+              </select>
+              <textarea data-wz-cc-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-cc-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+          </div>
+          <button type="button" data-rel-modal-close class="mt-4 text-sm text-nl-muted hover:text-slate-300">Cerrar</button>
+        </div>
+      </div>
+
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
         <h3 class="text-sm font-medium text-slate-200">Personaje → Capítulo</h3>
         <div class="flex flex-wrap gap-2">
           <select data-rel-pc-char class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Personaje</option>
-            ${chars.map((c) => `<option value="${c.id}">${escapeHtml(c.name || 'Sin nombre')}</option>`).join('')}
+            ${charOpts}
           </select>
           <select data-rel-pc-ch class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Capítulo</option>
-            ${chapters.map((c) => `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('')}
+            ${chOpts}
           </select>
           <button type="button" data-rel-pc-add class="px-3 py-1 rounded bg-indigo-600 text-sm text-white">Vincular</button>
         </div>
@@ -112,11 +249,11 @@ export function renderRelations(book, _app) {
         <div class="flex flex-wrap gap-2">
           <select data-rel-ps-char class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Personaje</option>
-            ${chars.map((c) => `<option value="${c.id}">${escapeHtml(c.name || 'Sin nombre')}</option>`).join('')}
+            ${charOpts}
           </select>
           <select data-rel-ps-ch class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Capítulo</option>
-            ${chapters.map((c) => `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('')}
+            ${chOpts}
           </select>
           <select data-rel-ps-sc class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Escena</option>
@@ -129,23 +266,39 @@ export function renderRelations(book, _app) {
         <div class="flex flex-wrap gap-2">
           <select data-rel-ee-a class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Evento A</option>
-            ${events.map((e) => `<option value="${e.id}">${escapeHtml(e.title || 'Evento')}</option>`).join('')}
+            ${evOpts}
           </select>
           <select data-rel-ee-b class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Evento B</option>
-            ${events.map((e) => `<option value="${e.id}">${escapeHtml(e.title || 'Evento')}</option>`).join('')}
+            ${evOpts}
           </select>
           <button type="button" data-rel-ee-add class="px-3 py-1 rounded bg-indigo-600 text-sm text-white">Vincular</button>
         </div>
       </section>
-      <ul class="text-xs space-y-1 text-slate-400">
-        ${listRelationships(book).map((r) => `
-          <li class="flex justify-between gap-2">
-            <span>${escapeHtml(r.type)} · ${escapeHtml(r.from.id)} → ${escapeHtml(r.to.id)}</span>
-            <button type="button" data-rel-del="${r.id}" class="text-red-400">✕</button>
-          </li>
-        `).join('')}
-      </ul>
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+        <h3 class="text-sm font-medium text-slate-200">Personaje ↔ Personaje</h3>
+        <div class="flex flex-wrap gap-2">
+          <select data-rel-cc-a class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
+            <option value="">Personaje A</option>
+            ${charOpts}
+          </select>
+          <select data-rel-cc-b class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
+            <option value="">Personaje B</option>
+            ${charOpts}
+          </select>
+          <select data-rel-cc-role class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
+            <option value="">Tipo</option>
+            ${roleOpts}
+          </select>
+          <button type="button" data-rel-cc-add class="px-3 py-1 rounded bg-indigo-600 text-sm text-white">Vincular</button>
+        </div>
+      </section>
+      <div>
+        <h3 class="text-sm font-medium text-slate-200 mb-3">Todas las relaciones</h3>
+        <ul class="space-y-2 text-sm">
+          ${relRows || '<li class="text-nl-muted text-sm">No hay relaciones.</li>'}
+        </ul>
+      </div>
     </div>
   `;
 }

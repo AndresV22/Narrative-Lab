@@ -7,49 +7,70 @@ import { toolbarHtml } from '../../editor.js';
 
 /**
  * @param {import('../../types.js').Book} book
+ * @param {import('../../app.js').App} app
  */
-export function renderTimelineMerged(book, _app) {
+export function renderTimelineMerged(book, app) {
   const evs = sortByOrder((book.events || []).slice(), 'sortKey');
-  return `
-    <div class="max-w-3xl mx-auto p-6 space-y-8">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 class="text-lg font-semibold text-white">Línea de tiempo</h2>
-          <p class="text-xs text-nl-muted mt-2 max-w-xl">Crea y edita eventos aquí. «Orden» controla la secuencia (número menor = antes en la línea).</p>
-        </div>
-        <button type="button" data-add-ev class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white">+ Evento</button>
-      </div>
-      <ul class="space-y-3">
-        ${evs.map((ev) => `
-          <li class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-2">
-            <div class="flex flex-wrap gap-2 items-center justify-between">
-              <div class="flex flex-wrap gap-2 flex-1 min-w-0">
-                <input data-ev-title="${ev.id}" class="flex-1 min-w-[140px] bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm text-white font-medium" value="${escapeHtml(ev.title)}" placeholder="Título" />
-                <input data-ev-date="${ev.id}" class="w-36 md:w-44 bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-xs" placeholder="Fecha / etiqueta" value="${escapeHtml(ev.dateLabel)}" />
-                <label class="flex items-center gap-1 text-xs text-nl-muted"><span>Orden</span>
-                  <input data-ev-sort="${ev.id}" type="number" class="w-16 bg-nl-raised border border-nl-border rounded px-1 py-1" value="${ev.sortKey}" />
-                </label>
-              </div>
-              <button type="button" data-del-ev="${ev.id}" class="text-xs text-red-400 hover:text-red-300 px-2 shrink-0">Eliminar</button>
-            </div>
-            <textarea data-ev-body="${ev.id}" rows="3" class="w-full text-sm bg-nl-bg border border-nl-border rounded px-2 py-2 text-slate-200">${escapeHtml(ev.content)}</textarea>
-          </li>
-        `).join('') || '<li class="text-nl-muted text-sm">Sin eventos. Pulsa «+ Evento».</li>'}
-      </ul>
-      <div>
-        <h3 class="text-sm font-medium text-slate-300 mb-4">Vista cronológica</h3>
-        <div class="relative pl-8">
-          <div class="absolute left-3 top-0 bottom-0 w-px nl-timeline-line"></div>
-          ${evs.map((ev) => `
-            <div class="relative mb-8">
+  const selId = app.state.timelineEventId;
+  const selected = selId ? evs.find((e) => e.id === selId) : null;
+
+  const timelineBlocks = evs.length
+    ? evs
+        .map((ev) => {
+          const active = ev.id === selId;
+          return `
+            <div
+              draggable="true"
+              data-timeline-ev="${ev.id}"
+              class="relative mb-8 rounded-lg border transition-colors cursor-pointer select-none ${
+                active ? 'border-indigo-500 bg-nl-raised/40 ring-1 ring-indigo-500/30' : 'border-transparent hover:border-nl-border hover:bg-nl-raised/20'
+              }"
+            >
               <div class="absolute -left-5 top-1 w-3 h-3 rounded-full bg-indigo-500 ring-4 ring-nl-bg"></div>
               <div class="text-xs text-indigo-300 mb-1">${escapeHtml(ev.dateLabel || '—')}</div>
               <div class="font-medium text-white">${escapeHtml(ev.title || 'Evento')}</div>
               <div class="text-sm text-nl-muted mt-1">${escapeHtml((ev.content || '').slice(0, 280))}</div>
             </div>
-          `).join('') || '<p class="text-nl-muted text-sm">Añade eventos arriba.</p>'}
-        </div>
+          `;
+        })
+        .join('')
+    : '<p class="text-nl-muted text-sm">Sin eventos. Pulsa «+ Evento».</p>';
+
+  const editor =
+    selected
+      ? `
+    <div class="mt-8 p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+      <h3 class="text-sm font-medium text-slate-200">Editar evento</h3>
+      <div class="flex flex-wrap gap-2 items-center">
+        <input data-ev-title="${selected.id}" class="flex-1 min-w-[140px] bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm text-white font-medium" value="${escapeHtml(selected.title)}" placeholder="Título" />
+        <input data-ev-date="${selected.id}" class="w-36 md:w-44 bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-xs" placeholder="Fecha / etiqueta" value="${escapeHtml(selected.dateLabel)}" />
+        <label class="flex items-center gap-1 text-xs text-nl-muted"><span>Orden</span>
+          <input data-ev-sort="${selected.id}" type="number" class="w-16 bg-nl-raised border border-nl-border rounded px-1 py-1" value="${selected.sortKey}" />
+        </label>
       </div>
+      <textarea data-ev-body="${selected.id}" rows="5" class="w-full text-sm bg-nl-bg border border-nl-border rounded px-2 py-2 text-slate-200">${escapeHtml(selected.content)}</textarea>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" data-save-ev="${selected.id}" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm">Guardar evento</button>
+        <button type="button" data-del-ev="${selected.id}" class="px-4 py-2 rounded-lg border border-red-500/30 text-red-300 text-sm hover:bg-red-500/10">Eliminar</button>
+      </div>
+    </div>
+  `
+      : `<p class="text-sm text-nl-muted mt-6">Selecciona un punto en la línea para editar.</p>`;
+
+  return `
+    <div class="max-w-3xl mx-auto p-6 space-y-8">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-white">Línea de tiempo</h2>
+          <p class="text-xs text-nl-muted mt-2 max-w-xl">Arrastra para reordenar. Pulsa un evento para seleccionarlo y editarlo abajo.</p>
+        </div>
+        <button type="button" data-add-ev class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white">+ Evento</button>
+      </div>
+      <div class="relative pl-8">
+        <div class="absolute left-3 top-0 bottom-0 w-px nl-timeline-line"></div>
+        <div data-timeline-list>${timelineBlocks}</div>
+      </div>
+      ${editor}
     </div>
   `;
 }

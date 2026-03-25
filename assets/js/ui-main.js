@@ -11,9 +11,17 @@ import {
   setLastExportNow,
   setProgressMode,
   setSpellcheckEnabled,
+  setSnapshotIntervalMinutes,
 } from './prefs.js';
 import { escapeHtml, sortByOrder } from './utils.js';
-import { linkCharacterToChapter, linkCharacterToScene, linkEventToEvent, removeRelationship } from './relations.js';
+import {
+  linkCharacterToChapter,
+  linkCharacterToScene,
+  linkEventToEvent,
+  linkCharacterToCharacter,
+  removeRelationship,
+} from './relations.js';
+import { showToast } from './toast.js';
 import { renderSidebar, renderRightPanel } from './ui-shell.js';
 import {
   wrapEditorSection,
@@ -69,6 +77,28 @@ function syncCharacterFormToModel(main, ch) {
  * @param {import('./app.js').App} app
  */
 function bindBookSettings(main, app) {
+  main.querySelector('[data-cover-file]')?.addEventListener('change', async (e) => {
+    const book = app.getCurrentBook();
+    const f = /** @type {HTMLInputElement} */ (e.target).files?.[0];
+    if (!book || !f) return;
+    const { readFileAsDataUrl } = await import('./utils.js');
+    try {
+      book.coverImageDataUrl = await readFileAsDataUrl(f);
+      app.persist();
+      renderMain(app);
+      bindMainInteractions(app);
+      renderSidebar(app);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error');
+    }
+  });
+  main.querySelector('[data-cover-zoom]')?.addEventListener('click', () => {
+    const book = app.getCurrentBook();
+    if (!book?.coverImageDataUrl) return;
+    import('./ui-modals.js').then(({ renderImageLightbox }) => {
+      renderImageLightbox(app, book.coverImageDataUrl, 'Carátula');
+    });
+  });
   main.querySelector('[data-save-meta]')?.addEventListener('click', () => {
     const book = app.getCurrentBook();
     if (!book) return;
@@ -244,6 +274,9 @@ function bindAppSettingsPanel(main, app) {
     setProgressMode(mode === 'debounce' ? 'debounce' : 'boundary');
     const sc = /** @type {HTMLInputElement|null} */ (main.querySelector('[data-app-spellcheck]'));
     setSpellcheckEnabled(!!sc?.checked);
+    const snapSel = /** @type {HTMLSelectElement|null} */ (main.querySelector('[data-app-snapshot-interval]'));
+    if (snapSel) setSnapshotIntervalMinutes(parseInt(snapSel.value, 10) || 0);
+    showToast('Ajustes guardados correctamente', 'success');
     app.refresh();
   });
 }
@@ -282,6 +315,16 @@ export function renderMain(app) {
   if (v === 'synopsis') {
     main.innerHTML = wrapEditorSection('Sinopsis', 'synopsis');
     app.attachEditor(main.querySelector('[data-ed]'), 'synopsis', null);
+    return;
+  }
+  if (v === 'historicalContext') {
+    main.innerHTML = wrapEditorSection('Contexto', 'historicalContext');
+    app.attachEditor(main.querySelector('[data-ed]'), 'historicalContext', null);
+    return;
+  }
+  if (v === 'worldRules') {
+    main.innerHTML = wrapEditorSection('Reglas del mundo', 'worldRules');
+    app.attachEditor(main.querySelector('[data-ed]'), 'worldRules', null);
     return;
   }
   if (v === 'prologue') {
@@ -447,6 +490,44 @@ export function bindMainInteractions(app) {
   if (app.state.view === 'character' && app.state.characterId) {
     const ch = book.characters.find((c) => c.id === app.state.characterId);
     if (!ch) return;
+    main.querySelector('[data-char-img]')?.addEventListener('click', () => {
+      if (!ch.imageDataUrl) return;
+      import('./ui-modals.js').then(({ renderImageLightbox }) => {
+        renderImageLightbox(app, ch.imageDataUrl, ch.name || 'Personaje');
+      });
+    });
+    main.querySelector('[data-char-img-zoom]')?.addEventListener('click', () => {
+      if (!ch.imageDataUrl) return;
+      import('./ui-modals.js').then(({ renderImageLightbox }) => {
+        renderImageLightbox(app, ch.imageDataUrl, ch.name || 'Personaje');
+      });
+    });
+    main.querySelector('[data-cc-add]')?.addEventListener('click', () => {
+      syncCharacterFormToModel(main, ch);
+      const other = /** @type {HTMLSelectElement|null} */ (main.querySelector('[data-cc-other]'))?.value;
+      const role = /** @type {HTMLSelectElement|null} */ (main.querySelector('[data-cc-role]'))?.value;
+      const desc = /** @type {HTMLTextAreaElement|null} */ (main.querySelector('[data-cc-desc]'))?.value || '';
+      if (!other || other === ch.id) return;
+      if (!role) {
+        showToast('Elige un tipo de vínculo', 'warning');
+        return;
+      }
+      linkCharacterToCharacter(book, ch.id, other, { role, description: desc });
+      app.persist();
+      renderMain(app);
+      bindMainInteractions(app);
+    });
+    main.querySelectorAll('[data-cc-del-rel]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const rid = btn.getAttribute('data-cc-del-rel');
+        if (rid) {
+          removeRelationship(book, rid);
+          app.persist();
+          renderMain(app);
+          bindMainInteractions(app);
+        }
+      });
+    });
     main.querySelector('[data-back-char]')?.addEventListener('click', () => {
       app.state.characterId = null;
       app.setView('characters');
@@ -478,36 +559,76 @@ export function bindMainInteractions(app) {
     main.querySelector('[data-add-ev]')?.addEventListener('click', () => {
       const ev = createEvent({ title: 'Nuevo evento', sortKey: book.events.length });
       book.events.push(ev);
+      app.state.timelineEventId = ev.id;
       app.persist();
       renderMain(app);
       bindMainInteractions(app);
       renderRightPanel(app);
     });
-    (book.events || []).forEach((ev) => {
-      main.querySelector(`[data-ev-title="${ev.id}"]`)?.addEventListener('change', (e) => {
-        ev.title = /** @type {HTMLInputElement} */ (e.target).value;
-        app.persist();
-        renderRightPanel(app);
-      });
-      main.querySelector(`[data-ev-date="${ev.id}"]`)?.addEventListener('change', (e) => {
-        ev.dateLabel = /** @type {HTMLInputElement} */ (e.target).value;
-        app.persist();
-      });
-      main.querySelector(`[data-ev-sort="${ev.id}"]`)?.addEventListener('change', (e) => {
-        ev.sortKey = parseInt(/** @type {HTMLInputElement} */ (e.target).value, 10) || 0;
-        app.persist();
+    main.querySelectorAll('[data-timeline-ev]').forEach((el) => {
+      const id = el.getAttribute('data-timeline-ev');
+      if (!id) return;
+      el.addEventListener('click', () => {
+        app.state.timelineEventId = id;
         renderMain(app);
         bindMainInteractions(app);
       });
-      main.querySelector(`[data-ev-body="${ev.id}"]`)?.addEventListener('change', (e) => {
-        ev.content = /** @type {HTMLTextAreaElement} */ (e.target).value;
+      el.addEventListener('dragstart', (e) => {
+        const dt = /** @type {DataTransfer} */ (e.dataTransfer);
+        if (dt) {
+          dt.setData('text/plain', id);
+          dt.effectAllowed = 'move';
+        }
+      });
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const dt = /** @type {DataTransfer} */ (e.dataTransfer);
+        if (dt) dt.dropEffect = 'move';
+      });
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const fromId = e.dataTransfer?.getData('text/plain');
+        const toId = id;
+        if (!fromId || fromId === toId) return;
+        const evs = sortByOrder((book.events || []).slice(), 'sortKey');
+        const fromIdx = evs.findIndex((x) => x.id === fromId);
+        const toIdx = evs.findIndex((x) => x.id === toId);
+        if (fromIdx < 0 || toIdx < 0) return;
+        const [moved] = evs.splice(fromIdx, 1);
+        evs.splice(toIdx, 0, moved);
+        evs.forEach((ev, i) => {
+          ev.sortKey = i;
+        });
+        book.events = evs;
         app.persist();
+        renderMain(app);
+        bindMainInteractions(app);
         renderRightPanel(app);
       });
-      main.querySelector(`[data-del-ev="${ev.id}"]`)?.addEventListener('click', () => {
-        app.deleteEventById(ev.id);
-      });
     });
+    const selId = app.state.timelineEventId;
+    if (selId) {
+      const ev = book.events.find((e) => e.id === selId);
+      if (ev) {
+        main.querySelector(`[data-save-ev="${ev.id}"]`)?.addEventListener('click', () => {
+          ev.title = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-title="${ev.id}"]`)).value;
+          ev.dateLabel = /** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-date="${ev.id}"]`)).value;
+          const sk = parseInt(
+            String(/** @type {HTMLInputElement} */ (main.querySelector(`[data-ev-sort="${ev.id}"]`)).value),
+            10
+          );
+          ev.sortKey = Number.isNaN(sk) ? ev.sortKey : sk;
+          ev.content = /** @type {HTMLTextAreaElement} */ (main.querySelector(`[data-ev-body="${ev.id}"]`)).value;
+          app.persist();
+          renderMain(app);
+          bindMainInteractions(app);
+          renderRightPanel(app);
+        });
+        main.querySelector(`[data-del-ev="${ev.id}"]`)?.addEventListener('click', () => {
+          app.deleteEventById(ev.id);
+        });
+      }
+    }
   }
 
   if (app.state.view === 'extras' && !app.state.extraId) {
@@ -736,13 +857,125 @@ export function bindMainInteractions(app) {
   }
 
   if (app.state.view === 'relations') {
+    const modal = main.querySelector('[data-rel-modal]');
+    const showWizardType = () => {
+      main.querySelector('[data-rel-wiz-type]')?.classList.remove('hidden');
+      main.querySelector('[data-rel-wiz-form]')?.classList.add('hidden');
+    };
+    const openModal = () => {
+      if (modal instanceof HTMLElement) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex', 'items-center', 'justify-center');
+        showWizardType();
+      }
+    };
+    const closeModal = () => {
+      if (modal instanceof HTMLElement) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex', 'items-center', 'justify-center');
+      }
+    };
+    main.querySelector('[data-rel-open-wizard]')?.addEventListener('click', openModal);
+    main.querySelector('[data-rel-modal-close]')?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+    main.querySelector('[data-rel-wiz-back]')?.addEventListener('click', showWizardType);
+    const panels = ['pc', 'ps', 'ee', 'cc'];
+    main.querySelectorAll('[data-rel-wiz-pick]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const k = btn.getAttribute('data-rel-wiz-pick');
+        main.querySelector('[data-rel-wiz-type]')?.classList.add('hidden');
+        const form = main.querySelector('[data-rel-wiz-form]');
+        form?.classList.remove('hidden');
+        for (const p of panels) {
+          main.querySelector(`[data-rel-wiz-panel-${p}]`)?.classList.toggle('hidden', p !== k);
+        }
+        if (k === 'ps') {
+          const wzCh = main.querySelector('[data-wz-ps-ch]');
+          const wzSc = main.querySelector('[data-wz-ps-sc]');
+          if (wzCh && wzSc) {
+            const chId = /** @type {HTMLSelectElement} */ (wzCh).value;
+            const ch = book.chapters.find((c) => c.id === chId);
+            wzSc.innerHTML =
+              '<option value="">Escena</option>' +
+              (ch ? sortByOrder(ch.scenes, 'order').map((s) => `<option value="${s.id}">${escapeHtml(s.title)}</option>`).join('') : '');
+          }
+        }
+      });
+    });
+    main.querySelector('[data-wz-ps-ch]')?.addEventListener('change', () => {
+      const chId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ps-ch]')).value;
+      const ch = book.chapters.find((c) => c.id === chId);
+      const wzSc = main.querySelector('[data-wz-ps-sc]');
+      if (!wzSc) return;
+      wzSc.innerHTML =
+        '<option value="">Escena</option>' +
+        (ch ? sortByOrder(ch.scenes, 'order').map((s) => `<option value="${s.id}">${escapeHtml(s.title)}</option>`).join('') : '');
+    });
+    main.querySelector('[data-wz-pc-add]')?.addEventListener('click', () => {
+      const c = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-pc-char]'));
+      const h = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-pc-ch]'));
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-pc-desc]'));
+      if (!c?.value || !h?.value) return;
+      linkCharacterToChapter(book, c.value, h.value, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      renderRightPanel(app);
+    });
+    main.querySelector('[data-wz-ps-add]')?.addEventListener('click', () => {
+      const c = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ps-char]'));
+      const chId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ps-ch]')).value;
+      const scId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ps-sc]')).value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-ps-desc]'));
+      if (!c?.value || !chId || !scId) return;
+      linkCharacterToScene(book, c.value, chId, scId, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      renderRightPanel(app);
+    });
+    main.querySelector('[data-wz-ee-add]')?.addEventListener('click', () => {
+      const a = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ee-a]')).value;
+      const b = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ee-b]')).value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-ee-desc]'));
+      if (!a || !b || a === b) return;
+      linkEventToEvent(book, a, b, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      renderRightPanel(app);
+    });
+    main.querySelector('[data-wz-cc-add]')?.addEventListener('click', () => {
+      const a = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-cc-a]')).value;
+      const b = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-cc-b]')).value;
+      const role = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-cc-role]')).value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-cc-desc]'));
+      if (!a || !b || a === b) return;
+      if (!role) {
+        showToast('Elige el tipo de vínculo entre personajes', 'warning');
+        return;
+      }
+      linkCharacterToCharacter(book, a, b, { role, description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      renderRightPanel(app);
+    });
+
     const chSel = main.querySelector('[data-rel-ps-ch]');
     const scSel = main.querySelector('[data-rel-ps-sc]');
     chSel?.addEventListener('change', () => {
       const chId = /** @type {HTMLSelectElement} */ (chSel).value;
       const ch = book.chapters.find((c) => c.id === chId);
       if (!scSel) return;
-      scSel.innerHTML = '<option value="">Escena</option>' +
+      scSel.innerHTML =
+        '<option value="">Escena</option>' +
         (ch ? sortByOrder(ch.scenes, 'order').map((s) => `<option value="${s.id}">${escapeHtml(s.title)}</option>`).join('') : '');
     });
     main.querySelector('[data-rel-pc-add]')?.addEventListener('click', () => {
@@ -776,6 +1009,21 @@ export function bindMainInteractions(app) {
       bindMainInteractions(app);
       renderRightPanel(app);
     });
+    main.querySelector('[data-rel-cc-add]')?.addEventListener('click', () => {
+      const a = /** @type {HTMLSelectElement} */ (main.querySelector('[data-rel-cc-a]')).value;
+      const b = /** @type {HTMLSelectElement} */ (main.querySelector('[data-rel-cc-b]')).value;
+      const role = /** @type {HTMLSelectElement} */ (main.querySelector('[data-rel-cc-role]')).value;
+      if (!a || !b || a === b) return;
+      if (!role) {
+        showToast('Elige el tipo de vínculo', 'warning');
+        return;
+      }
+      linkCharacterToCharacter(book, a, b, { role });
+      app.persist();
+      renderMain(app);
+      bindMainInteractions(app);
+      renderRightPanel(app);
+    });
     main.querySelectorAll('[data-rel-del]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-rel-del');
@@ -785,6 +1033,16 @@ export function bindMainInteractions(app) {
           renderMain(app);
           bindMainInteractions(app);
         }
+      });
+    });
+    book.relationships?.forEach((r) => {
+      main.querySelector(`[data-rel-desc="${r.id}"]`)?.addEventListener('change', (e) => {
+        r.description = /** @type {HTMLTextAreaElement} */ (e.target).value;
+        app.persist();
+      });
+      main.querySelector(`[data-rel-visible="${r.id}"]`)?.addEventListener('change', (e) => {
+        r.disabled = !/** @type {HTMLInputElement} */ (e.target).checked;
+        app.persist();
       });
     });
   }
