@@ -22,9 +22,14 @@
  */
 
 /**
+ * @typedef {'protagonista'|'antagonista'|'secundario'|'terciario'} CharacterRole
+ */
+
+/**
  * @typedef {Object} Character
  * @property {string} id
  * @property {string} name
+ * @property {CharacterRole} role
  * @property {string} age
  * @property {string} description
  * @property {string} personality

@@ -41,6 +41,22 @@ function gv(main, field) {
 }
 
 /**
+ * Aplica al modelo los campos del formulario de personaje (evita perder texto al subir imagen o re-renderizar).
+ * @param {HTMLElement} main
+ * @param {import('./types.js').Character} ch
+ */
+function syncCharacterFormToModel(main, ch) {
+  ch.name = gv(main, 'name');
+  ch.role = gv(main, 'role');
+  ch.age = gv(main, 'age');
+  ch.description = gv(main, 'description');
+  ch.personality = gv(main, 'personality');
+  ch.goals = gv(main, 'goals');
+  ch.conflicts = gv(main, 'conflicts');
+  ch.narrativeArc = gv(main, 'narrativeArc');
+}
+
+/**
  * @param {HTMLElement} main
  * @param {import('./app.js').App} app
  */
@@ -408,6 +424,7 @@ export function bindMainInteractions(app) {
       if (!f) return;
       const { readFileAsDataUrl } = await import('./utils.js');
       try {
+        syncCharacterFormToModel(main, ch);
         ch.imageDataUrl = await readFileAsDataUrl(f);
         app.persist();
         renderMain(app);
@@ -417,13 +434,7 @@ export function bindMainInteractions(app) {
       }
     });
     main.querySelector('[data-save-char]')?.addEventListener('click', () => {
-      ch.name = gv(main, 'name');
-      ch.age = gv(main, 'age');
-      ch.description = gv(main, 'description');
-      ch.personality = gv(main, 'personality');
-      ch.goals = gv(main, 'goals');
-      ch.conflicts = gv(main, 'conflicts');
-      ch.narrativeArc = gv(main, 'narrativeArc');
+      syncCharacterFormToModel(main, ch);
       app.persist();
       app.state.characterId = null;
       app.setView('characters');

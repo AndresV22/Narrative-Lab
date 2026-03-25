@@ -2,6 +2,7 @@
  * Plantillas HTML de las vistas principales — Narrative Lab
  */
 
+import { CHARACTER_ROLES, characterRoleLabel } from './character-roles.js';
 import { escapeHtml, sortByOrder } from './utils.js';
 import { toolbarHtml } from './editor.js';
 import { getAutosaveMs, getProgressMode } from './prefs.js';
@@ -157,7 +158,10 @@ export function renderCharacterList(book, app) {
                 ${c.imageDataUrl ? `<img src="${c.imageDataUrl}" alt="" class="w-full h-full object-cover"/>` : ''}
               </div>
               <div class="min-w-0">
-                <div class="font-medium text-white truncate">${escapeHtml(c.name || 'Sin nombre')}</div>
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="font-medium text-white truncate">${escapeHtml(c.name || 'Sin nombre')}</span>
+                  <span class="shrink-0 text-[10px] px-1.5 py-0.5 rounded border border-nl-border text-indigo-300/90">${escapeHtml(characterRoleLabel(c.role))}</span>
+                </div>
                 <div class="text-xs text-nl-muted truncate">${escapeHtml(c.description).slice(0, 120)}</div>
               </div>
             </button>
@@ -183,6 +187,13 @@ export function renderCharacterForm(book, ch, app) {
         <div class="flex-1 space-y-2">
           <label class="text-xs text-nl-muted">Nombre</label>
           <input data-f="name" class="w-full bg-nl-raised border border-nl-border rounded px-3 py-2 text-sm" value="${escapeHtml(ch.name)}" />
+          <label class="text-xs text-nl-muted">Papel en la historia</label>
+          <select data-f="role" class="w-full bg-nl-raised border border-nl-border rounded px-3 py-2 text-sm text-slate-200">
+            ${CHARACTER_ROLES.map((r) => {
+              const sel = (ch.role || 'secundario') === r ? ' selected' : '';
+              return `<option value="${r}"${sel}>${escapeHtml(characterRoleLabel(r))}</option>`;
+            }).join('')}
+          </select>
           <label class="text-xs text-nl-muted">Edad</label>
           <input data-f="age" class="w-full bg-nl-raised border border-nl-border rounded px-3 py-2 text-sm" value="${escapeHtml(ch.age)}" />
         </div>

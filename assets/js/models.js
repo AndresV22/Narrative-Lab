@@ -2,6 +2,7 @@
  * Esquema de datos y validación — Narrative Lab
  */
 
+import { normalizeCharacterRole } from './character-roles.js';
 import { uuid, deepClone, stripHtml } from './utils.js';
 
 export const SCHEMA_VERSION = 2;
@@ -43,6 +44,7 @@ export function createCharacter(overrides = {}) {
   return {
     id: uuid(),
     name: '',
+    role: 'secundario',
     age: '',
     description: '',
     personality: '',
@@ -289,6 +291,7 @@ function normalizeCharacter(raw) {
   return createCharacter({
     id: typeof x.id === 'string' ? x.id : uuid(),
     name: typeof x.name === 'string' ? x.name : '',
+    role: normalizeCharacterRole(typeof x.role === 'string' ? x.role : ''),
     age: typeof x.age === 'string' ? x.age : String(x.age ?? ''),
     description: typeof x.description === 'string' ? x.description : '',
     personality: typeof x.personality === 'string' ? x.personality : '',
