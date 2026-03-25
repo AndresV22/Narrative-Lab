@@ -9,7 +9,7 @@ import { NOVEL_CATEGORY_OPTIONS, NOVEL_CATEGORY_OTHER } from '../../book-categor
 
 export function wrapEditorSection(title, _field) {
   return `
-    <div class="max-w-3xl mx-auto w-full p-6 flex flex-col min-h-0 flex-1">
+    <div class="nl-view nl-view-grow">
       <h2 class="text-lg font-semibold text-white mb-4">${escapeHtml(title)}</h2>
       <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface flex flex-col flex-1 min-h-0">
         ${toolbarHtml()}
@@ -51,7 +51,7 @@ export function renderBookSettings(book) {
     }),
   ].join('');
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <h2 class="text-lg font-semibold text-white">Metadatos</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
         <div class="space-y-1">

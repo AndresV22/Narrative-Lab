@@ -26,7 +26,7 @@ export function renderAnalysisPanel(book) {
   };
 
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-8">
+    <div class="nl-view space-y-8">
       <div>
         <h2 class="text-lg font-semibold text-white mb-1">Análisis del libro</h2>
         <p class="text-sm text-nl-muted">Avisos importantes y sugerencias informativas. El contador del menú solo cuenta avisos (❗).</p>

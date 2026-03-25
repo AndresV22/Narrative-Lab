@@ -11,7 +11,7 @@ import { listRelationships, CHARACTER_LINK_ROLE_OPTIONS } from '../../relations.
  */
 export function renderCharacterList(book, _app) {
   return `
-    <div class="max-w-3xl mx-auto p-6">
+    <div class="nl-view">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 class="text-lg font-semibold text-white">Personajes</h2>
         <button type="button" data-add-char class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white hover:bg-indigo-500">+ Personaje</button>
@@ -75,7 +75,7 @@ export function renderCharacterForm(book, ch, _app) {
     CHARACTER_LINK_ROLE_OPTIONS.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('');
 
   return `
-    <div class="max-w-2xl mx-auto p-6 space-y-3">
+    <div class="nl-view space-y-3">
       <button type="button" data-back-char class="text-sm text-indigo-400">← Personajes</button>
       <div class="flex gap-4">
         <div class="shrink-0 flex flex-col gap-2 w-full max-w-[200px] sm:w-40">

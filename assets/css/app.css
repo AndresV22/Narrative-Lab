@@ -12,6 +12,25 @@
 
 /* Narrative Lab — capa fina sobre Tailwind */
 
+/**
+ * Columna de contenido unificada: mismo ancho máximo (48rem), padding horizontal
+ * responsive y centrado. El área central del layout ya se adapta al panel
+ * derecho; esto alinea títulos y botones «+» entre vistas.
+ */
+@layer components {
+  .nl-view {
+    @apply box-border w-full min-w-0 max-w-3xl mx-auto px-4 sm:px-6 py-6;
+  }
+  /** Vistas que necesitan más anchura (biblioteca, grafo). */
+  .nl-view-wide {
+    @apply box-border w-full min-w-0 max-w-5xl mx-auto px-4 sm:px-6 py-6;
+  }
+  /** Rellena la altura del main cuando la vista es flex (editores, guía). */
+  .nl-view-grow {
+    @apply flex flex-col flex-1 min-h-0;
+  }
+}
+
 .nl-toast-host {
   position: fixed;
   bottom: 1.25rem;

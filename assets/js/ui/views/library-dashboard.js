@@ -156,7 +156,7 @@ export function renderLibraryDashboard(app) {
     .join('');
 
   return `
-    <div class="max-w-5xl mx-auto w-full p-6 space-y-10 pb-16">
+    <div class="nl-view-wide space-y-10 pb-16">
       <div>
         <h2 class="text-xl font-semibold text-white mb-2">Resumen del workspace</h2>
         <p class="text-sm text-nl-muted mb-6">Estadísticas combinadas de todos los libros.</p>

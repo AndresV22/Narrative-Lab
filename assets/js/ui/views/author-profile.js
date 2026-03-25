@@ -23,7 +23,7 @@ export function renderAuthorProfileForm(profile) {
     : '<div class="w-32 h-32 rounded-full border border-dashed border-nl-border bg-nl-raised flex items-center justify-center text-xs text-nl-muted">Sin foto</div>';
 
   return `
-    <div class="max-w-2xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <h2 class="text-lg font-semibold text-white">Perfil de autor</h2>
       <p class="text-sm text-nl-muted">Estos datos se usan al crear libros nuevos. Puedes editarlos en cualquier momento.</p>
       <div class="flex flex-col sm:flex-row gap-6">

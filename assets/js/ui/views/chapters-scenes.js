@@ -12,7 +12,7 @@ import { toolbarHtml } from '../../editor.js';
 export function renderChaptersList(book, _app) {
   const chapters = sortByOrder(book.chapters, 'order');
   return `
-    <div class="max-w-3xl mx-auto p-6">
+    <div class="nl-view">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 class="text-lg font-semibold text-white">Capítulos</h2>
         <button type="button" data-add-ch class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white">+ Capítulo</button>
@@ -38,7 +38,7 @@ export function renderChaptersList(book, _app) {
 export function renderChapterEditor(ch) {
   const scenes = sortByOrder(ch.scenes, 'order');
   return `
-    <div class="max-w-3xl mx-auto w-full p-6 flex flex-col gap-4">
+    <div class="nl-view flex flex-col gap-4">
       <div class="flex items-start gap-3">
         <button type="button" data-back-ch class="text-sm text-indigo-400 hover:text-indigo-300 shrink-0">← Capítulos</button>
       </div>
@@ -76,7 +76,7 @@ export function renderChapterEditor(ch) {
  */
 export function renderSceneEditor(ch, sc) {
   return `
-    <div class="max-w-3xl mx-auto w-full p-6 flex flex-col gap-4">
+    <div class="nl-view flex flex-col gap-4">
       <button type="button" data-back-sc class="text-sm text-indigo-400 w-fit">← ${escapeHtml(ch.title)}</button>
       <input data-sc-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white focus:outline-none focus:border-indigo-500 pb-2" value="${escapeHtml(sc.title)}" />
       <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">
@@ -94,7 +94,7 @@ export function renderSceneEditor(ch, sc) {
 export function renderActsList(book) {
   const acts = sortByOrder(book.acts || [], 'order');
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="text-lg font-semibold text-white">Actos</h2>
@@ -130,7 +130,7 @@ export function renderActsList(book) {
 export function renderActEditor(book, act) {
   const chapters = sortByOrder(book.chapters, 'order');
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-4">
+    <div class="nl-view space-y-4">
       <button type="button" data-back-acts class="text-sm text-indigo-400 hover:text-indigo-300">← Actos</button>
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <h2 class="text-lg font-semibold text-white">Editar acto</h2>

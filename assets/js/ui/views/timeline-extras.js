@@ -60,7 +60,7 @@ export function renderTimelineMerged(book, app) {
       : `<p class="text-sm text-nl-muted mt-6">Selecciona un punto en la línea para editar.</p>`;
 
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-8">
+    <div class="nl-view space-y-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="text-lg font-semibold text-white">Línea de tiempo</h2>
@@ -80,7 +80,7 @@ export function renderTimelineMerged(book, app) {
 export function renderExtrasList(book) {
   const list = book.extraBlocks || [];
   return `
-    <div class="max-w-3xl mx-auto p-6">
+    <div class="nl-view">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 class="text-lg font-semibold text-white">Extras</h2>
         <button type="button" data-add-extra class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white hover:bg-indigo-500">+ Nuevo extra</button>
@@ -103,7 +103,7 @@ export function renderExtrasList(book) {
  */
 export function renderExtraEditor(book, eb) {
   return `
-    <div class="max-w-3xl mx-auto w-full p-6 space-y-4">
+    <div class="nl-view space-y-4">
       <button type="button" data-back-extras class="text-sm text-indigo-400 hover:text-indigo-300">← Lista de extras</button>
       <input data-extra-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white py-2 focus:outline-none focus:border-indigo-500" value="${escapeHtml(eb.title)}" />
       <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">

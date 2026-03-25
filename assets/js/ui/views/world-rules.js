@@ -11,7 +11,7 @@ import { toolbarHtml } from '../../editor.js';
 export function renderWorldRulesList(book) {
   const rules = book.rules || [];
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="text-lg font-semibold text-white">Reglas del mundo</h2>
@@ -41,7 +41,7 @@ export function renderWorldRulesList(book) {
  */
 export function renderWorldRuleEditor(rule) {
   return `
-    <div class="max-w-3xl mx-auto w-full p-6 space-y-4 flex flex-col min-h-0 flex-1">
+    <div class="nl-view nl-view-grow space-y-4">
       <button type="button" data-back-world-rules class="text-sm text-indigo-400 hover:text-indigo-300 shrink-0">← Lista de reglas</button>
       <input data-world-rule-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white py-2 focus:outline-none focus:border-indigo-500" value="${escapeHtml(rule.title)}" placeholder="Título de la regla" />
       <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface flex flex-col flex-1 min-h-0">

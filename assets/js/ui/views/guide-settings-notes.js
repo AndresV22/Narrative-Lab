@@ -17,14 +17,14 @@ export function renderWritingGuide(app) {
     const article = getWritingGuideArticle(id);
     if (!article) {
       return `
-        <div class="max-w-3xl mx-auto p-6">
+        <div class="nl-view">
           <button type="button" data-guide-back class="text-sm text-indigo-400 hover:text-indigo-300 mb-4">← Índice de la guía</button>
           <p class="text-nl-muted text-sm">Artículo no encontrado.</p>
         </div>
       `;
     }
     return `
-      <div class="max-w-3xl mx-auto w-full p-6 flex flex-col min-h-0 flex-1">
+      <div class="nl-view nl-view-grow">
         <button type="button" data-guide-back class="text-sm text-indigo-400 hover:text-indigo-300 mb-4 w-fit">← Índice de la guía</button>
         <article class="rounded-xl border border-nl-border bg-nl-surface p-6 nl-scroll overflow-y-auto flex-1 min-h-0">
           <p class="text-[10px] uppercase tracking-wider text-indigo-400/90 mb-2">${escapeHtml(article.category)}</p>
@@ -66,7 +66,7 @@ export function renderWritingGuide(app) {
     .join('');
 
   return `
-    <div class="max-w-3xl mx-auto w-full p-6 flex flex-col min-h-0 flex-1">
+    <div class="nl-view nl-view-grow">
       <div class="mb-6">
         <h2 class="text-lg font-semibold text-white">Guía de escritura</h2>
         <p class="text-sm text-nl-muted mt-2 max-w-xl">Ficción, ciencia ficción, fantasía, romance y técnica narrativa. Referencias de estudio a Isaac Asimov, J. R. R. Tolkien y Brandon Sanderson (ilustrativas, no prescriptivas).</p>
@@ -87,7 +87,7 @@ export function renderAppSettingsPanel() {
   const snapMin = getSnapshotIntervalMinutes();
   const snapOpts = [0, 5, 15, 30, 60, 120];
   return `
-    <div class="max-w-xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <h2 class="text-lg font-semibold text-white">Ajustes</h2>
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
         <h3 class="text-sm font-medium text-slate-200">Corrector ortográfico del navegador</h3>
@@ -140,7 +140,7 @@ export function renderAppSettingsPanel() {
 
 export function renderNotesList(book, _app) {
   return `
-    <div class="max-w-3xl mx-auto p-6">
+    <div class="nl-view">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 class="text-lg font-semibold text-white">Notas</h2>
         <button type="button" data-add-note class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-sm text-white hover:bg-indigo-500">+ Nota</button>
@@ -161,7 +161,7 @@ export function renderNotesList(book, _app) {
 
 export function renderNoteEditor(note, _app) {
   return `
-    <div class="max-w-3xl mx-auto w-full p-6 space-y-4">
+    <div class="nl-view space-y-4">
       <button type="button" data-back-notes class="text-sm text-indigo-400 hover:text-indigo-300">← Notas</button>
       <input data-note-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white" value="${escapeHtml(note.title)}" />
       <div class="rounded-xl border border-nl-border overflow-hidden bg-nl-surface">
@@ -180,7 +180,7 @@ export function renderNoteEditor(note, _app) {
 export function renderHighlightsList(book) {
   const list = book.highlights || [];
   return `
-    <div class="max-w-3xl mx-auto p-6">
+    <div class="nl-view">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 class="text-lg font-semibold text-white">Frases destacadas</h2>
         <p class="text-xs text-nl-muted sm:max-w-sm">Pulsa una frase para editarla. En el editor usa «Destacar selección» para añadir más.</p>
@@ -222,7 +222,7 @@ export function renderHighlightEditor(book, h) {
     )
     .join('');
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-4">
+    <div class="nl-view space-y-4">
       <button type="button" data-back-highlights class="text-sm text-indigo-400 hover:text-indigo-300">← Frases destacadas</button>
       <h2 class="text-lg font-semibold text-white">Editar frase</h2>
       <div class="p-4 rounded-lg border border-nl-border bg-nl-surface space-y-3">

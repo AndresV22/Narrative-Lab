@@ -67,7 +67,7 @@ export function renderGraphHost(book, app) {
       mode === m ? 'border-indigo-500 bg-indigo-500/15 text-indigo-200' : 'border-nl-border text-slate-300 hover:bg-nl-raised'
     }">${label}</button>`;
   return `
-    <div class="max-w-5xl mx-auto p-6 space-y-4 flex flex-col min-h-0 flex-1">
+    <div class="nl-view-wide nl-view-grow space-y-4">
       <div>
         <h2 class="text-lg font-semibold text-white mb-1">Mapa de relaciones</h2>
         <p class="text-sm text-nl-muted">Visualización según el alcance elegido. La vista «Relaciones» sigue siendo donde se editan los vínculos.</p>
@@ -87,7 +87,7 @@ export function renderSnapshots(book, _app) {
     book.snapshots.map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.label)} (${escapeHtml(formatSnapshotDate(s.createdAt))})</option>`).join('') ||
     '<option value="">Sin snapshots</option>';
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <h2 class="text-lg font-semibold text-white">Historial de versiones</h2>
       <div class="flex flex-wrap gap-2">
         <input data-snap-label placeholder="Etiqueta del snapshot" class="flex-1 bg-nl-raised border border-nl-border rounded px-3 py-2 text-sm" />
@@ -163,7 +163,7 @@ export function renderRelations(book, _app) {
     .join('');
 
   return `
-    <div class="max-w-3xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="text-lg font-semibold text-white">Relaciones</h2>
         <button type="button" data-rel-open-wizard class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white">+ Nueva relación</button>
@@ -306,7 +306,7 @@ export function renderRelations(book, _app) {
 
 export function renderExportPanel(_book, _app) {
   return `
-    <div class="max-w-xl mx-auto p-6 space-y-6">
+    <div class="nl-view space-y-6">
       <div>
         <h2 class="text-lg font-semibold text-white mb-2">Exportar libro</h2>
         <p class="text-sm text-nl-muted">Incluye prólogo, capítulos, escenas, epílogo, extras y frases destacadas.</p>
