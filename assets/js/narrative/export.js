@@ -3,8 +3,232 @@
  */
 
 import { characterRoleLabel } from '../domain/character-roles.js';
+import {
+  EDITOR_DEFAULT_FONT_SIZE_PX,
+  EDITOR_DEFAULT_FONT_STACK,
+  EDITOR_DEFAULT_FORE_COLOR,
+} from '../editor/editor-font.js';
+import { EDITOR_PAGE_SIZE_PRESETS } from '../editor/editor-page-sizes.js';
+import {
+  getEditorMarginHorizontalCm,
+  getEditorMarginVerticalCm,
+  getEditorPageSize,
+} from '../domain/prefs.js';
 import { stripNlCommentMarks, stripNlHighlightMarks } from '../editor/editor-helpers.js';
 import { sortByOrder, stripHtml, wordCountFromHtml } from '../core/utils.js';
+
+/** Pila tipográfica segura para CSS (p. ej. "Crimson Pro"). */
+function cssFontStackForExport(stack) {
+  return stack
+    .split(',')
+    .map((s) => {
+      const t = s.trim();
+      if (!t) return '';
+      return /\s/.test(t) ? `"${t.replace(/"/g, '')}"` : t;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** 1 cm → twips (1 in = 1440 twips). */
+function cmToPageTwip(cm) {
+  return Math.round((Number(cm) / 2.54) * 1440);
+}
+
+/**
+ * @param {string} id
+ * @returns {{ width: number, height: number }}
+ */
+function editorPageSizeToDocxTwips(id) {
+  switch (id) {
+    case 'letter':
+      return { width: 12240, height: 15840 };
+    case 'legal':
+      return { width: 12240, height: 20160 };
+    case 'a5':
+      return { width: 8391, height: 11906 };
+    case 'a4':
+    default:
+      return { width: 11906, height: 16838 };
+  }
+}
+
+/** @returns {string} */
+function buildExportPrintStylesheet() {
+  const pageId = getEditorPageSize();
+  const preset = EDITOR_PAGE_SIZE_PRESETS.find((p) => p.id === pageId) || EDITOR_PAGE_SIZE_PRESETS[0];
+  const mx = getEditorMarginHorizontalCm();
+  const my = getEditorMarginVerticalCm();
+  const pageSize = `${preset.width} ${preset.minHeight}`;
+  const baseFont = cssFontStackForExport(EDITOR_DEFAULT_FONT_STACK);
+  const baseSizePt = (EDITOR_DEFAULT_FONT_SIZE_PX * 72) / 96;
+  const bodyColor = EDITOR_DEFAULT_FORE_COLOR;
+
+  return `
+@page {
+  size: ${pageSize};
+  margin: ${my}cm ${mx}cm;
+}
+.nl-print-export {
+  box-sizing: border-box;
+  background: #fff;
+  color: ${bodyColor};
+  font-family: ${baseFont};
+  font-size: ${baseSizePt}pt;
+  line-height: 1.65;
+  max-width: none !important;
+  margin: 0;
+  padding: 0;
+}
+.nl-print-export .nl-book-export h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 0.5em;
+}
+.nl-print-export .nl-book-export h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 1.1em 0 0.4em;
+}
+.nl-print-export .nl-book-export h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0.9em 0 0.35em;
+}
+.nl-print-export .nl-book-export h4 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0.75em 0 0.3em;
+}
+.nl-print-export .nl-book-export p {
+  margin: 0 0 0.65em;
+}
+.nl-print-export .nl-book-export .meta {
+  opacity: 0.85;
+  font-size: 0.95em;
+}
+.nl-print-export .nl-book-export blockquote {
+  margin: 0.75em 0;
+  padding: 0.65em 0.85em 0.65em 1rem;
+  border-left: 4px solid rgb(99 102 241 / 0.55);
+  background: rgb(241 245 249 / 0.35);
+  font-style: italic;
+}
+.nl-print-export .nl-book-export ul,
+.nl-print-export .nl-book-export ol {
+  margin: 0.5em 0;
+  padding-left: 1.35rem;
+}
+@media print {
+  .nl-print-export {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+.nl-print-export .nl-lh-compact { line-height: 1.35; }
+.nl-print-export .nl-lh-comfort { line-height: 1.75; }
+.nl-print-export .nl-lh-relaxed { line-height: 2.15; }
+  `.trim();
+}
+
+/**
+ * @param {string} [cssColor]
+ * @returns {string|undefined} RRGGBB sin # para docx
+ */
+function parseColorForDocx(cssColor) {
+  if (!cssColor) return undefined;
+  const s = String(cssColor).trim();
+  const hex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    return h.toUpperCase();
+  }
+  const rgb = s.match(/^rgba?\(\s*([^)]+)\)/i);
+  if (rgb) {
+    const parts = rgb[1].trim().split(/[\s,/]+/).filter((x) => x !== '' && x !== '/');
+    if (parts.length >= 3) {
+      const toHex = (n) => Math.min(255, Math.max(0, Math.round(Number(n)))).toString(16).padStart(2, '0');
+      return `${toHex(parts[0])}${toHex(parts[1])}${toHex(parts[2])}`.toUpperCase();
+    }
+  }
+  return undefined;
+}
+
+/**
+ * @param {string} [fontSize] CSS font-size
+ * @returns {number|undefined} Medios puntos (docx)
+ */
+function cssFontSizeToHalfPoints(fontSize) {
+  if (!fontSize) return undefined;
+  const s = String(fontSize).trim();
+  const px = s.match(/^([\d.]+)px$/i);
+  if (px) {
+    const pt = (parseFloat(px[1]) * 72) / 96;
+    return Math.max(2, Math.round(pt * 2));
+  }
+  const pt = s.match(/^([\d.]+)pt$/i);
+  if (pt) return Math.max(2, Math.round(parseFloat(pt[1]) * 2));
+  return undefined;
+}
+
+/**
+ * @param {string} stack
+ * @returns {string|undefined}
+ */
+function firstFontFromStack(stack) {
+  if (!stack) return undefined;
+  const first = stack.split(',')[0].trim().replace(/^["']|["']$/g, '');
+  return first || undefined;
+}
+
+/**
+ * @returns {Record<string, unknown>}
+ */
+function docxDefaultRunStyleProps() {
+  const c = parseColorForDocx(EDITOR_DEFAULT_FORE_COLOR);
+  return {
+    font: firstFontFromStack(EDITOR_DEFAULT_FONT_STACK),
+    size: Math.round(((EDITOR_DEFAULT_FONT_SIZE_PX * 72) / 96) * 2),
+    ...(c ? { color: c } : {}),
+  };
+}
+
+/**
+ * @param {HTMLElement} el
+ * @param {{ AlignmentType?: Record<string, string> }} docxMod
+ * @returns {string|undefined}
+ */
+function alignmentFromElement(el, docxMod) {
+  const AlignmentType = docxMod.AlignmentType;
+  if (!AlignmentType) return undefined;
+  const a = el.style.textAlign;
+  if (a === 'center') return AlignmentType.CENTER;
+  if (a === 'right' || a === 'end') return AlignmentType.END;
+  if (a === 'justify') return AlignmentType.BOTH;
+  return undefined;
+}
+
+/**
+ * @param {HTMLElement} el
+ * @param {Record<string, unknown>} styles
+ * @returns {Record<string, unknown>}
+ */
+function mergeInlineStylesFromElement(el, styles) {
+  const next = { ...styles };
+  const st = el.style;
+  if (st.color) {
+    const c = parseColorForDocx(st.color);
+    if (c) next.color = c;
+  }
+  const sz = cssFontSizeToHalfPoints(st.fontSize);
+  if (sz != null) next.size = sz;
+  if (st.fontFamily) {
+    const f = firstFontFromStack(st.fontFamily);
+    if (f) next.font = f;
+  }
+  return next;
+}
 
 /**
  * HTML de fragmento listo para export (sin marcas de comentario del editor).
@@ -182,11 +406,8 @@ function injectPrintRoot(innerArticleHtml) {
     root.id = 'nl-print-root';
     document.body.appendChild(root);
   }
-  root.innerHTML = `
-    <div class="nl-print-export" style="padding: 2rem; max-width: 40rem; margin: 0 auto;">
-      ${innerArticleHtml}
-    </div>
-  `;
+  const css = buildExportPrintStylesheet();
+  root.innerHTML = `<style>${css}</style><div class="nl-print-export">${innerArticleHtml}</div>`;
   window.print();
   setTimeout(() => {
     root.innerHTML = '';
@@ -283,32 +504,50 @@ export function exportPdfPrint(book) {
 }
 
 /**
- * Convierte runs inline (negrita, cursiva, etc.) para docx.
+ * Convierte runs inline (negrita, cursiva, color, tamaño, fuente) para docx.
  * @param {HTMLElement} el
  * @param {any} docx — módulo docx (TextRun, UnderlineType)
+ * @param {Record<string, unknown>} [baseStyles]
  */
-function inlineRunsFromElement(el, docx) {
+function inlineRunsFromElement(el, docx, baseStyles = {}) {
   const { TextRun, UnderlineType } = docx;
+  const base = { ...docxDefaultRunStyleProps(), ...baseStyles };
   const runs = [];
+  /** @param {Record<string, unknown>} s */
+  function textRunOpts(s) {
+    /** @type {Record<string, unknown>} */
+    const o = {};
+    if (s.text != null) o.text = s.text;
+    if (s.bold) o.bold = true;
+    if (s.italics) o.italics = true;
+    if (s.underline) o.underline = s.underline;
+    if (s.break) o.break = s.break;
+    if (s.color) o.color = s.color;
+    if (s.size != null) o.size = s.size;
+    if (s.font) o.font = s.font;
+    return o;
+  }
   function walk(n, styles) {
     if (n.nodeType === Node.TEXT_NODE) {
       const t = n.textContent || '';
-      if (t) runs.push(new TextRun({ text: t, ...styles }));
+      if (t) runs.push(new TextRun(textRunOpts({ ...styles, text: t })));
     } else if (n.nodeType === Node.ELEMENT_NODE) {
-      const tag = n.tagName.toLowerCase();
+      const el2 = /** @type {HTMLElement} */ (n);
+      const tag = el2.tagName.toLowerCase();
       if (tag === 'br') {
         runs.push(new TextRun({ break: 1 }));
         return;
       }
-      const next = { ...styles };
-      if (tag === 'strong' || tag === 'b') next.bold = true;
-      if (tag === 'em' || tag === 'i') next.italics = true;
-      if (tag === 'u' && UnderlineType) next.underline = { type: UnderlineType.SINGLE };
-      n.childNodes.forEach((c) => walk(c, next));
+      let next = { ...styles };
+      if (tag === 'strong' || tag === 'b') next = { ...next, bold: true };
+      if (tag === 'em' || tag === 'i') next = { ...next, italics: true };
+      if (tag === 'u' && UnderlineType) next = { ...next, underline: { type: UnderlineType.SINGLE } };
+      next = mergeInlineStylesFromElement(el2, next);
+      el2.childNodes.forEach((c) => walk(c, next));
     }
   }
-  el.childNodes.forEach((c) => walk(c, {}));
-  return runs.length ? runs : [new TextRun({ text: '' })];
+  el.childNodes.forEach((c) => walk(c, base));
+  return runs.length ? runs : [new TextRun(textRunOpts({ ...base, text: '' }))];
 }
 
 /**
@@ -318,46 +557,61 @@ function inlineRunsFromElement(el, docx) {
  */
 function processBlockForDocx(node, out, docx) {
   const { Paragraph, TextRun, HeadingLevel } = docx;
-  const runsFor = (/** @type {HTMLElement} */ el) => inlineRunsFromElement(el, docx);
+  const runsFor = (/** @type {HTMLElement} */ elem) => inlineRunsFromElement(elem, docx);
+  const def = docxDefaultRunStyleProps();
   if (node.nodeType === Node.TEXT_NODE) {
     const t = (node.textContent || '').replace(/\s+/g, ' ').trim();
-    if (t) out.push(new Paragraph({ children: [new TextRun({ text: t })] }));
+    if (t) out.push(new Paragraph({ children: [new TextRun({ text: t, ...def })] }));
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const el = /** @type {HTMLElement} */ (node);
   const tag = el.tagName.toLowerCase();
   if (tag === 'h1') {
-    out.push(new Paragraph({ text: el.textContent.trim(), heading: HeadingLevel.HEADING_1 }));
+    const t = el.textContent.trim();
+    if (!t) return;
+    out.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: runsFor(el) }));
     return;
   }
   if (tag === 'h2') {
-    out.push(new Paragraph({ text: el.textContent.trim(), heading: HeadingLevel.HEADING_2 }));
+    const t = el.textContent.trim();
+    if (!t) return;
+    out.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: runsFor(el) }));
     return;
   }
   if (tag === 'h3') {
-    out.push(new Paragraph({ text: el.textContent.trim(), heading: HeadingLevel.HEADING_3 }));
+    const t = el.textContent.trim();
+    if (!t) return;
+    out.push(new Paragraph({ heading: HeadingLevel.HEADING_3, children: runsFor(el) }));
     return;
   }
   if (tag === 'h4' || tag === 'h5' || tag === 'h6') {
-    out.push(new Paragraph({ text: el.textContent.trim(), heading: HeadingLevel.HEADING_3 }));
+    const t = el.textContent.trim();
+    if (!t) return;
+    out.push(new Paragraph({ heading: HeadingLevel.HEADING_3, children: runsFor(el) }));
     return;
   }
   if (tag === 'p') {
     const plain = el.textContent?.trim();
     if (!plain) return;
-    out.push(new Paragraph({ children: runsFor(el) }));
+    /** @type {Record<string, unknown>} */
+    const paraOpts = { children: runsFor(el) };
+    const al = alignmentFromElement(el, docx);
+    if (al) paraOpts.alignment = al;
+    out.push(new Paragraph(paraOpts));
     return;
   }
   if (tag === 'blockquote') {
     const plain = el.textContent?.trim();
     if (!plain) return;
-    out.push(
-      new Paragraph({
-        children: runsFor(el),
-        indent: { left: 720 },
-      })
-    );
+    /** @type {Record<string, unknown>} */
+    const bqOpts = {
+      children: runsFor(el),
+      indent: { left: 720 },
+    };
+    const al = alignmentFromElement(el, docx);
+    if (al) bqOpts.alignment = al;
+    out.push(new Paragraph(bqOpts));
     return;
   }
   if (tag === 'ul') {
@@ -366,7 +620,7 @@ function processBlockForDocx(node, out, docx) {
       if (!h.textContent?.trim()) return;
       out.push(
         new Paragraph({
-          children: [new TextRun({ text: '• ' }), ...runsFor(h)],
+          children: [new TextRun({ text: '• ', ...def }), ...runsFor(h)],
         })
       );
     });
@@ -379,7 +633,7 @@ function processBlockForDocx(node, out, docx) {
       if (!h.textContent?.trim()) return;
       out.push(
         new Paragraph({
-          children: [new TextRun({ text: `${i}. ` }), ...runsFor(h)],
+          children: [new TextRun({ text: `${i}. `, ...def }), ...runsFor(h)],
         })
       );
       i += 1;
@@ -393,7 +647,7 @@ function processBlockForDocx(node, out, docx) {
   if (tag === 'li') return;
   const plain = el.textContent?.trim();
   if (!plain) return;
-  out.push(new Paragraph({ children: [new TextRun({ text: plain })] }));
+  out.push(new Paragraph({ children: [new TextRun({ text: plain, ...def })] }));
 }
 
 /**
@@ -407,8 +661,8 @@ async function exportDocxFromHtml(html, filenameStem) {
   } catch {
     throw new Error('No se pudo cargar el generador DOCX. Comprueba la conexión e inténtalo de nuevo.');
   }
-  const { Document, Packer, Paragraph, TextRun } = docx;
-  if (!Document || !Packer || !Paragraph || !TextRun) {
+  const { Document, Packer, Paragraph, TextRun, PageOrientation } = docx;
+  if (!Document || !Packer || !Paragraph || !TextRun || !PageOrientation) {
     throw new Error('La librería DOCX no expone la API esperada.');
   }
   const parser = new DOMParser();
@@ -423,12 +677,30 @@ async function exportDocxFromHtml(html, filenameStem) {
   const children = [];
   root.childNodes.forEach((c) => processBlockForDocx(c, children, docx));
   if (children.length === 0) {
-    children.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
+    children.push(new Paragraph({ children: [new TextRun({ text: '', ...docxDefaultRunStyleProps() })] }));
   }
+  const pageId = getEditorPageSize();
+  const dims = editorPageSizeToDocxTwips(pageId);
+  const mt = cmToPageTwip(getEditorMarginVerticalCm());
+  const ms = cmToPageTwip(getEditorMarginHorizontalCm());
   const doc = new Document({
     sections: [
       {
-        properties: {},
+        properties: {
+          page: {
+            size: {
+              width: dims.width,
+              height: dims.height,
+              orientation: PageOrientation.PORTRAIT,
+            },
+            margin: {
+              top: mt,
+              right: ms,
+              bottom: mt,
+              left: ms,
+            },
+          },
+        },
         children: /** @type {any} */ (children),
       },
     ],
@@ -489,9 +761,15 @@ async function exportEpubFromHtml(htmlContent, title, bookId, downloadFilename) 
   </spine>
 </package>`;
 
+  const mx = getEditorMarginHorizontalCm();
+  const my = getEditorMarginVerticalCm();
+  const baseSizePt = (EDITOR_DEFAULT_FONT_SIZE_PX * 72) / 96;
+  const epubCss = `body{font-family:${cssFontStackForExport(
+    EDITOR_DEFAULT_FONT_STACK
+  )};font-size:${baseSizePt}pt;color:${EDITOR_DEFAULT_FORE_COLOR};line-height:1.65;margin:${my}cm ${mx}cm;}`;
   const chapterXhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head><title>${escapedTitle}</title></head>
+<head><title>${escapedTitle}</title><style type="text/css">${epubCss}</style></head>
 <body>${htmlContent}</body>
 </html>`;
 

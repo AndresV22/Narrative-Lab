@@ -18,10 +18,8 @@ import { configureAutosaveDelay } from '../domain/storage.js';
 import {
   exportReminderSummaryLine,
   getAutosaveMs,
-  getRightPanelDefaultExpanded,
   setAutosaveMs,
   setProgressMode,
-  setRightPanelDefaultExpanded,
   setSpellcheckEnabled,
   setSnapshotIntervalMinutes,
 } from '../domain/prefs.js';
@@ -35,7 +33,12 @@ import {
 } from '../narrative/relations.js';
 import { showToast } from './toast.js';
 import { renderClearWorkspaceModal } from './ui-modals.js';
-import { renderSidebar, renderRightPanel } from './ui-shell.js';
+import {
+  renderSidebar,
+  renderRightPanel,
+  applyRightPanelLayout,
+  updateHeaderBookToolsVisibility,
+} from './ui-shell.js';
 import {
   wrapEditorSection,
   renderBookSettings,
@@ -77,6 +80,16 @@ import { isoDateToDisplay, displayDateToIso } from '../core/date-format.js';
 function gv(main, field) {
   const el = main.querySelector(`[data-f="${field}"]`);
   return el && 'value' in el ? String(/** @type {HTMLInputElement} */ (el).value) : '';
+}
+
+/**
+ * Repinta el panel derecho y sincroniza ancho / visibilidad del header con el libro y la vista.
+ * @param {import('../app.js').App} app
+ */
+function rerenderRightPanelChrome(app) {
+  renderRightPanel(app);
+  applyRightPanelLayout(app);
+  updateHeaderBookToolsVisibility(app);
 }
 
 /**
@@ -172,7 +185,7 @@ function bindBookSettings(main, app) {
     const goSynopsis = app.state.afterNewBookMeta;
     app.state.afterNewBookMeta = false;
     renderSidebar(app);
-    renderRightPanel(app);
+    rerenderRightPanelChrome(app);
     if (goSynopsis) app.setView('synopsis');
   });
 }
@@ -368,14 +381,6 @@ function bindAppSettingsPanel(main, app) {
     setSpellcheckEnabled(!!sc?.checked);
     const snapSel = /** @type {HTMLSelectElement|null} */ (main.querySelector('[data-app-snapshot-interval]'));
     if (snapSel) setSnapshotIntervalMinutes(parseInt(snapSel.value, 10) || 0);
-    const rp = /** @type {HTMLInputElement|null} */ (main.querySelector('[data-app-right-panel-default]'));
-    setRightPanelDefaultExpanded(!!rp?.checked);
-    if (app.els) {
-      const open = getRightPanelDefaultExpanded();
-      app.state.rightOpen = open;
-      app.els.right.classList.toggle('hidden', !open);
-      app.els.right.classList.toggle('lg:flex', open);
-    }
     showToast('Ajustes guardados correctamente', 'success');
     app.refresh();
   });
@@ -743,7 +748,7 @@ export function bindMainInteractions(app) {
       app.persist();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelectorAll('[data-timeline-ev]').forEach((el) => {
       const id = el.getAttribute('data-timeline-ev');
@@ -783,7 +788,7 @@ export function bindMainInteractions(app) {
         app.persist();
         renderMain(app);
         bindMainInteractions(app);
-        renderRightPanel(app);
+        rerenderRightPanelChrome(app);
       });
     });
     const selId = app.state.timelineEventId;
@@ -1215,7 +1220,7 @@ export function bindMainInteractions(app) {
       closeModal();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelector('[data-wz-ps-add]')?.addEventListener('click', () => {
       const c = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ps-char]'));
@@ -1228,7 +1233,7 @@ export function bindMainInteractions(app) {
       closeModal();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelector('[data-wz-ee-add]')?.addEventListener('click', () => {
       const a = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ee-a]')).value;
@@ -1240,7 +1245,7 @@ export function bindMainInteractions(app) {
       closeModal();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelector('[data-wz-cc-add]')?.addEventListener('click', () => {
       const a = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-cc-a]')).value;
@@ -1257,7 +1262,7 @@ export function bindMainInteractions(app) {
       closeModal();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
 
     const chSel = main.querySelector('[data-rel-ps-ch]');
@@ -1278,7 +1283,7 @@ export function bindMainInteractions(app) {
       app.persist();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelector('[data-rel-ps-add]')?.addEventListener('click', () => {
       const c = /** @type {HTMLSelectElement} */ (main.querySelector('[data-rel-ps-char]'));
@@ -1289,7 +1294,7 @@ export function bindMainInteractions(app) {
       app.persist();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelector('[data-rel-ee-add]')?.addEventListener('click', () => {
       const a = /** @type {HTMLSelectElement} */ (main.querySelector('[data-rel-ee-a]')).value;
@@ -1299,7 +1304,7 @@ export function bindMainInteractions(app) {
       app.persist();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelector('[data-rel-cc-add]')?.addEventListener('click', () => {
       const a = /** @type {HTMLSelectElement} */ (main.querySelector('[data-rel-cc-a]')).value;
@@ -1314,7 +1319,7 @@ export function bindMainInteractions(app) {
       app.persist();
       renderMain(app);
       bindMainInteractions(app);
-      renderRightPanel(app);
+      rerenderRightPanelChrome(app);
     });
     main.querySelectorAll('[data-rel-del]').forEach((btn) => {
       btn.addEventListener('click', () => {

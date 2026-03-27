@@ -182,7 +182,215 @@ export function flattenPageLayout(host) {
 }
 
 /**
+ * @param {HTMLElement} root
+ * @returns {Text | null}
+ */
+function findFirstTextNode(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  return /** @type {Text | null} */ (w.nextNode());
+}
+
+/**
+ * @param {HTMLElement} el
+ * @returns {number}
+ */
+function countTextChars(el) {
+  let n = 0;
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  let t;
+  while ((t = w.nextNode())) n += t.textContent.length;
+  return n;
+}
+
+/**
+ * Recorta el subárbol a los primeros maxChars caracteres de texto (orden documento).
+ * @param {HTMLElement} root
+ * @param {number} maxChars
+ */
+function truncateElementToTextLength(root, maxChars) {
+  if (maxChars <= 0) {
+    root.textContent = '';
+    return;
+  }
+  let remaining = maxChars;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let n;
+  while ((n = walker.nextNode())) {
+    const text = n.textContent;
+    const len = text.length;
+    if (remaining <= 0) {
+      removeNodeAndFollowingInDocument(n, root);
+      return;
+    }
+    if (remaining >= len) {
+      remaining -= len;
+    } else {
+      n.textContent = text.slice(0, remaining);
+      remaining = 0;
+      removeNodeAndFollowingInDocument(n, root);
+      return;
+    }
+  }
+}
+
+/**
+ * Elimina el nodo de texto dado y todo lo que le sigue en orden de documento dentro de root.
+ * @param {Node} textNode
+ * @param {HTMLElement} root
+ */
+function removeNodeAndFollowingInDocument(textNode, root) {
+  let cur = /** @type {Node | null} */ (textNode);
+  while (cur && cur !== root) {
+    while (cur.nextSibling) {
+      cur.nextSibling.remove();
+    }
+    const parent = cur.parentNode;
+    if (!parent || parent === root) break;
+    cur = parent;
+    while (cur.nextSibling) {
+      cur.nextSibling.remove();
+    }
+  }
+}
+
+/**
+ * Quita elementos vacíos (p. ej. strong sin texto) de abajo arriba.
+ * @param {HTMLElement} root
+ */
+function pruneEmptyElements(root) {
+  const list = root.querySelectorAll('*');
+  for (let i = list.length - 1; i >= 0; i--) {
+    const el = list[i];
+    if (el.tagName === 'BR') continue;
+    if (!el.textContent?.trim()) el.remove();
+  }
+}
+
+/**
+ * Rango desde el primer carácter de texto hasta el carácter endOffset (exclusivo del bloque completo).
+ * @param {HTMLElement} root
+ * @param {number} charCount
+ * @returns {Range}
+ */
+function rangeCoveringFirstCharCount(root, charCount) {
+  const range = document.createRange();
+  if (charCount <= 0) {
+    const first = findFirstTextNode(root);
+    if (first) {
+      range.setStart(first, 0);
+      range.setEnd(first, 0);
+    }
+    return range;
+  }
+  let remaining = charCount;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let n;
+  let started = false;
+  while ((n = walker.nextNode())) {
+    const len = n.textContent.length;
+    if (!started) {
+      range.setStart(n, 0);
+      started = true;
+    }
+    if (remaining <= len) {
+      range.setEnd(n, remaining);
+      return range;
+    }
+    remaining -= len;
+  }
+  range.selectNodeContents(root);
+  return range;
+}
+
+/**
+ * @param {HTMLElement} block
+ * @returns {boolean}
+ */
+function isSplittableBlock(block) {
+  const tag = block.tagName.toLowerCase();
+  if (tag !== 'p' && tag !== 'blockquote' && tag !== 'h2' && tag !== 'h3' && tag !== 'li') return false;
+  return countTextChars(block) >= 2;
+}
+
+/**
+ * Prefijo de texto que cabe en la página (búsqueda binaria sobre un clon).
+ * @param {HTMLElement} block
+ * @param {HTMLElement} page
+ * @returns {number | null}
+ */
+function maxCharsFitInPage(block, page) {
+  const total = countTextChars(block);
+  if (total < 2) return null;
+  let lo = 1;
+  let hi = total - 1;
+  let best = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const clone = block.cloneNode(true);
+    truncateElementToTextLength(clone, mid);
+    pruneEmptyElements(clone);
+    page.appendChild(clone);
+    const ok = page.scrollHeight <= page.clientHeight;
+    page.removeChild(clone);
+    if (ok) {
+      best = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  if (best < 1) return null;
+  const raw = block.textContent || '';
+  let use = best;
+  const lastSpace = raw.slice(0, best).lastIndexOf(' ');
+  const lastNl = raw.slice(0, best).lastIndexOf('\n');
+  const boundary = Math.max(lastSpace, lastNl);
+  if (boundary >= 0) {
+    const snapped = boundary + 1;
+    if (snapped < best && snapped >= 1) {
+      const clone = block.cloneNode(true);
+      truncateElementToTextLength(clone, snapped);
+      pruneEmptyElements(clone);
+      page.appendChild(clone);
+      const ok = page.scrollHeight <= page.clientHeight;
+      page.removeChild(clone);
+      if (ok) use = snapped;
+    }
+  }
+  return use;
+}
+
+/**
+ * @param {HTMLElement} original
+ * @param {DocumentFragment} frag
+ * @returns {HTMLElement}
+ */
+function wrapFragmentInBlockLike(original, frag) {
+  const el = document.createElement(original.tagName.toLowerCase());
+  for (const a of original.attributes) {
+    if (a.name === 'id') continue;
+    el.setAttribute(a.name, a.value);
+  }
+  while (frag.firstChild) el.appendChild(frag.firstChild);
+  return el;
+}
+
+/**
+ * Asegura un párrafo vacío editable (&lt;br&gt;).
+ * @param {HTMLElement} el
+ */
+function ensureBlockEditable(el) {
+  const tag = el.tagName.toLowerCase();
+  if (tag !== 'p' && tag !== 'li') return;
+  if (!el.textContent?.trim()) {
+    el.innerHTML = '';
+    el.appendChild(document.createElement('br'));
+  }
+}
+
+/**
  * Redistribuye bloques en páginas de altura fija (overflow oculto).
+ * Los párrafos largos se parten entre páginas en lugar de mover el bloque entero.
  * @param {HTMLElement} host
  */
 export function layoutEditorPages(host) {
@@ -211,15 +419,40 @@ export function layoutEditorPages(host) {
     let page = createPageElement();
     host.appendChild(page);
     for (const block of detached) {
-      page.appendChild(block);
-      if (page.scrollHeight > page.clientHeight) {
-        page.removeChild(block);
+      /** @type {HTMLElement | null} */
+      let remaining = block;
+      while (remaining) {
+        page.appendChild(remaining);
+        if (page.scrollHeight <= page.clientHeight) {
+          remaining = null;
+          break;
+        }
+        page.removeChild(remaining);
+
+        const splitAt = isSplittableBlock(remaining) ? maxCharsFitInPage(remaining, page) : null;
+        if (splitAt && splitAt >= 1) {
+          const range = rangeCoveringFirstCharCount(remaining, splitAt);
+          const frag = range.extractContents();
+          const head = wrapFragmentInBlockLike(remaining, frag);
+          pruneEmptyElements(head);
+          page.appendChild(head);
+          pruneEmptyElements(remaining);
+          ensureBlockEditable(remaining);
+          if (!(remaining.textContent || '').trim()) {
+            remaining = null;
+            break;
+          }
+          page = createPageElement();
+          host.appendChild(page);
+          continue;
+        }
+
         if (page.childNodes.length === 0) {
-          page.appendChild(block);
+          page.appendChild(remaining);
+          remaining = null;
         } else {
           page = createPageElement();
           host.appendChild(page);
-          page.appendChild(block);
         }
       }
     }

@@ -8,7 +8,6 @@ import {
   EXPORT_REMINDER_DAYS,
   daysSinceLastExport,
   exportReminderSummaryLine,
-  getRightPanelDefaultExpanded,
   getSidebarCollapsed,
   setSidebarCollapsed,
   shouldShowExportReminder,
@@ -31,21 +30,56 @@ function applySidebarCollapseLayout(sidebar, collapsed) {
   sidebar.classList.add(collapsed ? 'w-[4.5rem]' : 'w-64');
 }
 
+const RIGHT_PANEL_BASE_CLASS =
+  'nl-right-panel shrink-0 flex flex-col bg-nl-surface nl-scroll transition-[width] duration-200 ease-out';
+
+/**
+ * Ancho del panel derecho (progreso / comentarios): animación tipo sidebar.
+ * @param {import('./app.js').App} app
+ */
+export function applyRightPanelLayout(app) {
+  const right = app.els?.right;
+  if (!right) return;
+  const disabled = !app.state.bookId || app.state.view === 'appSettings';
+  if (disabled) {
+    app.state.rightOpen = false;
+    right.className = `${RIGHT_PANEL_BASE_CLASS} w-0 min-w-0 overflow-hidden border-l-0`;
+    return;
+  }
+  if (app.state.rightOpen) {
+    right.className = `${RIGHT_PANEL_BASE_CLASS} w-80 min-w-[20rem] border-l border-nl-border overflow-y-auto`;
+  } else {
+    right.className = `${RIGHT_PANEL_BASE_CLASS} w-0 min-w-0 overflow-hidden border-l-0`;
+  }
+}
+
+/**
+ * Snapshot y panel de progreso solo con libro abierto y fuera de Ajustes globales.
+ * @param {import('./app.js').App} app
+ */
+export function updateHeaderBookToolsVisibility(app) {
+  const wrap = document.querySelector('[data-header-book-only]');
+  if (!wrap) return;
+  const show = !!app.state.bookId && app.state.view !== 'appSettings';
+  wrap.classList.toggle('hidden', !show);
+  wrap.classList.toggle('lg:flex', show);
+}
+
+/**
+ * @param {HTMLElement} right
+ * @param {import('./app.js').App} app
+ */
+function bindRightPanelCollapse(right, app) {
+  right.querySelector('[data-right-panel-collapse]')?.addEventListener('click', () => {
+    app.state.rightOpen = false;
+    applyRightPanelLayout(app);
+  });
+}
+
 /**
  * @param {HTMLElement} sidebar
  * @param {import('./app.js').App} app
  */
-/**
- * @param {import('./app.js').App} app
- * @param {HTMLElement} right
- */
-function applyRightPanelInitialVisibility(app, right) {
-  const open = getRightPanelDefaultExpanded();
-  app.state.rightOpen = open;
-  right.classList.toggle('hidden', !open);
-  right.classList.toggle('lg:flex', open);
-}
-
 function bindSidebarCollapseToggle(sidebar, app) {
   sidebar.querySelector('[data-sidebar-collapse]')?.addEventListener('click', () => {
     setSidebarCollapsed(true);
@@ -91,12 +125,10 @@ export function mountShell(root, app) {
     saveSnapshotFromHeader(app);
   });
   root.querySelector('[data-action="toggle-right"]')?.addEventListener('click', () => {
+    if (!app.state.bookId || app.state.view === 'appSettings') return;
     app.state.rightOpen = !app.state.rightOpen;
-    right.classList.toggle('hidden', !app.state.rightOpen);
-    right.classList.toggle('lg:flex', app.state.rightOpen);
+    applyRightPanelLayout(app);
   });
-
-  applyRightPanelInitialVisibility(app, right);
 
   return { sidebar, main, right, modalHost, saveStatus, saveSnapshotBtn };
 }
@@ -390,8 +422,8 @@ function isBookEditorSurface(app) {
 export function renderRightPanel(app) {
   const { right } = app.els;
   const book = app.getCurrentBook();
-  if (!book) {
-    right.innerHTML = `<div class="p-4 text-sm text-nl-muted">Abre un libro para ver progreso y relaciones.</div>`;
+  if (!book || app.state.view === 'appSettings') {
+    right.innerHTML = '';
     return;
   }
 
@@ -400,7 +432,10 @@ export function renderRightPanel(app) {
       <div class="flex flex-col h-full min-h-0">
         <div class="p-3 border-b border-nl-border flex items-center justify-between gap-2 shrink-0">
           <span class="text-xs font-medium text-slate-300">Comentarios (este fragmento)</span>
-          <button type="button" data-nl-right-comments-back class="text-xs text-indigo-400 hover:text-indigo-300 shrink-0">Resumen del libro</button>
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" data-nl-right-comments-back class="text-xs text-indigo-400 hover:text-indigo-300">Resumen del libro</button>
+            <button type="button" data-right-panel-collapse class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-nl-border text-slate-300 hover:bg-nl-raised" title="Contraer panel" aria-label="Contraer panel"><i class="fa-solid fa-angles-right" aria-hidden="true"></i></button>
+          </div>
         </div>
         <ul data-nl-comments-list class="flex-1 overflow-y-auto nl-scroll p-2 space-y-2 min-h-0 text-sm"></ul>
       </div>
@@ -410,6 +445,7 @@ export function renderRightPanel(app) {
       setEditorCommentsPanelOpen(false);
       renderRightPanel(app);
     });
+    bindRightPanelCollapse(right, app);
     app.syncEditorCommentsPanel(/** @type {HTMLElement} */ (app.editor.host));
     return;
   }
@@ -464,7 +500,10 @@ export function renderRightPanel(app) {
 
   right.innerHTML = `
     <div class="p-4 border-b border-nl-border">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-nl-muted mb-3">Progreso</h3>
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-nl-muted">Progreso</h3>
+        <button type="button" data-right-panel-collapse class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-nl-border text-slate-300 hover:bg-nl-raised shrink-0" title="Contraer panel" aria-label="Contraer panel"><i class="fa-solid fa-angles-right" aria-hidden="true"></i></button>
+      </div>
       <div class="text-2xl font-semibold text-white tabular-nums">${stats.total.toLocaleString()}</div>
       <div class="text-xs text-nl-muted mt-1">palabras · meta ${stats.goal.toLocaleString()}</div>
       ${
@@ -504,4 +543,5 @@ export function renderRightPanel(app) {
   right.querySelector('[data-go-analysis]')?.addEventListener('click', () => {
     app.setView('analysis');
   });
+  bindRightPanelCollapse(right, app);
 }

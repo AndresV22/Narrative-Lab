@@ -9,6 +9,8 @@ export {
   setSaveBadge,
   renderSidebar,
   renderRightPanel,
+  applyRightPanelLayout,
+  updateHeaderBookToolsVisibility,
 } from './ui-shell.js';
 export { renderMain, bindMainInteractions } from './ui-main.js';
 export {

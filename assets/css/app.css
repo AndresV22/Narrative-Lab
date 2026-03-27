@@ -246,7 +246,7 @@ html {
   min-height: 0;
 }
 
-/* Márgenes de la hoja: solo --nl-editor-margin-x/y (prefs, px); 0 = sin margen. Por defecto 50px vía JS/prefs. */
+/* Márgenes de la hoja: --nl-editor-margin-x/y (prefs en cm vía JS); 0 = sin margen. */
 .nl-editor-sheet.nl-editor-sheet--page .nl-page {
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.45);
   border-radius: 0.375rem;
@@ -255,10 +255,10 @@ html {
   box-sizing: border-box;
   width: 100%;
   overflow: hidden;
-  padding-left: var(--nl-editor-margin-x, 50px);
-  padding-right: var(--nl-editor-margin-x, 50px);
-  padding-top: var(--nl-editor-margin-y, 50px);
-  padding-bottom: var(--nl-editor-margin-y, 50px);
+  padding-left: var(--nl-editor-margin-x, 1.32cm);
+  padding-right: var(--nl-editor-margin-x, 1.32cm);
+  padding-top: var(--nl-editor-margin-y, 1.32cm);
+  padding-bottom: var(--nl-editor-margin-y, 1.32cm);
 }
 
 .nl-editor-sheet.nl-editor-sheet--page.nl-editor-sheet--letter .nl-page {

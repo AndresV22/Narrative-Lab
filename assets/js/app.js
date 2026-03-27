@@ -33,6 +33,8 @@ import {
   renderSidebar,
   renderMain,
   renderRightPanel,
+  applyRightPanelLayout,
+  updateHeaderBookToolsVisibility,
   setSaveBadge,
   bindMainInteractions,
   renderSearchModal,
@@ -133,6 +135,7 @@ export class App {
     this.debouncedRight = debounce(() => {
       if (!this.els || !this.workspace || !this.getCurrentBook()) return;
       renderRightPanel(this);
+      applyRightPanelLayout(this);
       renderSidebar(this);
       updateHeaderSnapshotButton(this);
     }, 600);
@@ -144,6 +147,7 @@ export class App {
   refreshRightPanel() {
     if (!this.els || !this.workspace) return;
     renderRightPanel(this);
+    applyRightPanelLayout(this);
     updateHeaderSnapshotButton(this);
   }
 
@@ -261,10 +265,6 @@ export class App {
     if (getEditorCommentsPanelOpen()) {
       this.state.rightPanelMode = 'comments';
       this.state.rightOpen = true;
-      if (this.els) {
-        this.els.right.classList.remove('hidden');
-        this.els.right.classList.add('lg:flex');
-      }
     } else {
       this.state.rightPanelMode = 'stats';
     }
@@ -280,6 +280,7 @@ export class App {
     }
     if (this.els) {
       renderRightPanel(this);
+      applyRightPanelLayout(this);
     }
   }
 
@@ -293,15 +294,12 @@ export class App {
     if (next) {
       this.state.rightPanelMode = 'comments';
       this.state.rightOpen = true;
-      this.els.right.classList.remove('hidden');
-      this.els.right.classList.add('lg:flex');
     } else {
       this.state.rightPanelMode = 'stats';
       this.state.rightOpen = false;
-      this.els.right.classList.add('hidden');
-      this.els.right.classList.remove('lg:flex');
     }
     renderRightPanel(this);
+    applyRightPanelLayout(this);
   }
 
   /**
@@ -727,6 +725,8 @@ export class App {
     renderSidebar(this);
     renderMain(this);
     renderRightPanel(this);
+    applyRightPanelLayout(this);
+    updateHeaderBookToolsVisibility(this);
     bindMainInteractions(this);
     updateHeaderSnapshotButton(this);
     this.syncAutoSnapshotTimer();
@@ -798,10 +798,17 @@ export class App {
     this.refresh();
   }
 
-  deleteCurrentBook() {
+  async deleteCurrentBook() {
     const book = this.getCurrentBook();
     if (!book || !this.workspace) return;
-    if (!confirm(`¿Eliminar «${book.name}»? Esta acción no se puede deshacer.`)) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar libro',
+      message: `¿Eliminar «${book.name}»? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    });
+    if (!ok) return;
     this.workspace.books = this.workspace.books.filter((b) => b.id !== book.id);
     this.state.bookId = null;
     this.state.view = 'library';

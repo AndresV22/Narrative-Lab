@@ -8,7 +8,6 @@ import { editorCardWithHost } from '../../editor/editor.js';
 import {
   getAutosaveMs,
   getProgressMode,
-  getRightPanelDefaultExpanded,
   getSpellcheckEnabled,
   getSnapshotIntervalMinutes,
 } from '../../domain/prefs.js';
@@ -103,14 +102,6 @@ export function renderAppSettingsPanel() {
           <span>Activar subrayado ortográfico nativo en los editores</span>
         </label>
         <p class="text-xs text-nl-muted">Se aplica al guardar o al volver a abrir un editor.</p>
-      </section>
-      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
-        <h3 class="text-sm font-medium text-slate-200">Panel derecho (progreso)</h3>
-        <p class="text-xs text-nl-muted">Estadísticas, métricas y comentarios del fragmento activo. Puedes mostrarlo u ocultarlo también con el botón «Panel de progreso» en la barra superior.</p>
-        <label class="flex items-start gap-3 text-sm text-slate-300 cursor-pointer">
-          <input type="checkbox" class="mt-1 rounded border-nl-border" data-app-right-panel-default ${getRightPanelDefaultExpanded() ? 'checked' : ''} />
-          <span>Mostrar el panel derecho al iniciar la aplicación o al abrir un libro</span>
-        </label>
       </section>
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
         <h3 class="text-sm font-medium text-slate-200">Guardado automático</h3>

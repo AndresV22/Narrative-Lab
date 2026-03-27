@@ -29,13 +29,13 @@ import {
 } from './editor-toolbar-pinned-selection.js';
 import { EDITOR_PAGE_SIZE_PRESETS } from './editor-page-sizes.js';
 import {
-  getEditorMarginHorizontalPx,
-  getEditorMarginVerticalPx,
+  getEditorMarginHorizontalCm,
+  getEditorMarginVerticalCm,
   getEditorPageMode,
   getEditorPageSize,
   getEditorZoomPercent,
-  setEditorMarginHorizontalPx,
-  setEditorMarginVerticalPx,
+  setEditorMarginHorizontalCm,
+  setEditorMarginVerticalCm,
   setEditorPageMode,
   setEditorPageSize,
   setEditorZoomPercent,
@@ -575,11 +575,14 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
     sel.addRange(savedToolbarRange.cloneRange());
   };
 
+  const selectionNonCollapsedInHost = (r) =>
+    !r.collapsed && (r.commonAncestorContainer === editor.host || editor.host.contains(r.commonAncestorContainer));
+
   const syncSavedRangeAfterCommand = () => {
     const sel = window.getSelection();
     if (sel && sel.rangeCount) {
       const nr = sel.getRangeAt(0);
-      if (!nr.collapsed && editor.host.contains(nr.commonAncestorContainer)) {
+      if (selectionNonCollapsedInHost(nr)) {
         savedToolbarRange = nr.cloneRange();
       }
     }
@@ -600,7 +603,7 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
     const sel = window.getSelection();
     if (sel && sel.rangeCount) {
       const r = sel.getRangeAt(0);
-      if (!r.collapsed && editor.host.contains(r.commonAncestorContainer)) {
+      if (selectionNonCollapsedInHost(r)) {
         savedToolbarRange = r.cloneRange();
       }
     }
@@ -620,10 +623,10 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
 
   /** Márgenes extra dentro de la hoja (modo página): variables en el host, ver .nl-page en app.css */
   const applyEditorMargins = () => {
-    const mx = getEditorMarginHorizontalPx();
-    const my = getEditorMarginVerticalPx();
-    editor.host.style.setProperty('--nl-editor-margin-x', `${mx}px`);
-    editor.host.style.setProperty('--nl-editor-margin-y', `${my}px`);
+    const mx = getEditorMarginHorizontalCm();
+    const my = getEditorMarginVerticalCm();
+    editor.host.style.setProperty('--nl-editor-margin-x', `${mx}cm`);
+    editor.host.style.setProperty('--nl-editor-margin-y', `${my}cm`);
     if (sheet) {
       sheet.style.removeProperty('padding-left');
       sheet.style.removeProperty('padding-right');
@@ -722,25 +725,41 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
 
   const mxIn = toolbarEl.querySelector('[data-editor-margin-x]');
   const myIn = toolbarEl.querySelector('[data-editor-margin-y]');
-  if (mxIn && 'value' in mxIn) {
-    /** @type {HTMLInputElement} */ (mxIn).value = String(getEditorMarginHorizontalPx());
-    mxIn.addEventListener('change', () => {
-      const n = parseInt(/** @type {HTMLInputElement} */ (mxIn).value, 10);
+  const applyMarginsFromInputs = () => {
+    const parseCm = (raw) => {
+      const n = parseFloat(String(raw).trim().replace(',', '.'));
+      return Number.isFinite(n) ? n : NaN;
+    };
+    let ok = false;
+    if (mxIn && 'value' in mxIn) {
+      const n = parseCm(/** @type {HTMLInputElement} */ (mxIn).value);
       if (Number.isFinite(n)) {
-        setEditorMarginHorizontalPx(n);
-        applyEditorMargins();
+        setEditorMarginHorizontalCm(n);
+        ok = true;
       }
-    });
+    }
+    if (myIn && 'value' in myIn) {
+      const n = parseCm(/** @type {HTMLInputElement} */ (myIn).value);
+      if (Number.isFinite(n)) {
+        setEditorMarginVerticalCm(n);
+        ok = true;
+      }
+    }
+    if (!ok) return;
+    applyEditorMargins();
+    if (getEditorPageMode() && editor.host.classList.contains('nl-editor-page-layout')) {
+      queueMicrotask(() => layoutEditorPages(editor.host));
+    }
+  };
+  if (mxIn && 'value' in mxIn) {
+    /** @type {HTMLInputElement} */ (mxIn).value = String(getEditorMarginHorizontalCm());
+    mxIn.addEventListener('change', applyMarginsFromInputs);
+    mxIn.addEventListener('input', applyMarginsFromInputs);
   }
   if (myIn && 'value' in myIn) {
-    /** @type {HTMLInputElement} */ (myIn).value = String(getEditorMarginVerticalPx());
-    myIn.addEventListener('change', () => {
-      const n = parseInt(/** @type {HTMLInputElement} */ (myIn).value, 10);
-      if (Number.isFinite(n)) {
-        setEditorMarginVerticalPx(n);
-        applyEditorMargins();
-      }
-    });
+    /** @type {HTMLInputElement} */ (myIn).value = String(getEditorMarginVerticalCm());
+    myIn.addEventListener('change', applyMarginsFromInputs);
+    myIn.addEventListener('input', applyMarginsFromInputs);
   }
 
   editor.host.addEventListener('nl-editor-zoom-in', onZoomIn);
@@ -851,6 +870,16 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   const fspx = toolbarEl.querySelector('[data-font-size-px]');
   if (fspx) {
     let lastApplyTs = 0;
+    const onFontSizePxFocus = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const r = sel.getRangeAt(0);
+        if (selectionNonCollapsedInHost(r)) {
+          savedToolbarRange = r.cloneRange();
+        }
+      }
+      refreshPinnedHighlight();
+    };
     const applyPx = () => {
       const raw = /** @type {HTMLInputElement} */ (fspx).value;
       const n = parseInt(raw, 10);
@@ -865,12 +894,15 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
       const sel = window.getSelection();
       if (sel && sel.rangeCount) {
         const nr = sel.getRangeAt(0);
-        if (!nr.collapsed && editor.host.contains(nr.commonAncestorContainer)) {
+        if (selectionNonCollapsedInHost(nr)) {
           savedToolbarRange = nr.cloneRange();
         }
       }
       refreshPinnedHighlight();
     };
+    fspx.addEventListener('focusin', onFontSizePxFocus);
+    fspx.addEventListener('focus', onFontSizePxFocus);
+    fspx.addEventListener('input', applyPx);
     fspx.addEventListener('change', applyPx);
     fspx.addEventListener('blur', applyPx);
     fspx.addEventListener('keydown', (e) => {
@@ -1086,7 +1118,7 @@ export function toolbarHtml() {
 
   return `
     <div data-nl-toolbar class="nl-toolbar flex flex-wrap items-center gap-1.5 p-2 border-b border-nl-border bg-nl-surface rounded-t-xl">
-      <span class="nl-toolbar-label text-[10px] uppercase tracking-wide text-nl-muted hidden sm:inline">Texto</span>
+      <span class="nl-toolbar-label text-[10px] uppercase tracking-wide text-nl-muted hidden sm:inline">Fuente</span>
       <label class="sr-only" for="nl-font-family">Fuente</label>
       <select data-font-family id="nl-font-family" class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-xs text-slate-200 max-w-[9.5rem] shrink-0" title="Fuente">${fontFamilyOptions}</select>
       <label class="sr-only" for="nl-font-size-px">Tamaño (px)</label>
@@ -1136,22 +1168,23 @@ export function toolbarHtml() {
       ${sep}
       <span class="nl-toolbar-label text-[10px] uppercase tracking-wide text-nl-muted hidden sm:inline">Comentarios</span>
       <button type="button" data-new-comment-btn class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised flex items-center gap-1" title="Nuevo comentario sobre el texto seleccionado" aria-label="Nuevo comentario">${iconComment}<span class="text-xs hidden xl:inline">Comentar</span></button>
-      <button type="button" data-comments-panel-toggle class="nl-tool-btn px-2 py-1 rounded text-xs text-slate-300 border border-nl-border hover:bg-nl-raised" title="Mostrar u ocultar panel de comentarios" aria-label="Panel de comentarios">Panel</button>
+      <button type="button" data-comments-panel-toggle class="nl-tool-btn px-2 py-1 rounded text-xs text-slate-300 border border-nl-border hover:bg-nl-raised" title="Mostrar u ocultar panel de comentarios" aria-label="Mostrar comentarios">Mostrar comentarios</button>
       ${sep}
       <span class="nl-toolbar-label text-[10px] uppercase tracking-wide text-nl-muted hidden sm:inline">Vista</span>
       <button type="button" data-page-mode-toggle class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Modo página (hoja de documento)" aria-label="Modo página">${iconPage}</button>
       <label class="sr-only" for="nl-page-size-sel">Tamaño de página</label>
       <select data-page-size id="nl-page-size-sel" class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-xs text-slate-200 max-w-[10rem]" title="Tamaño de hoja (Carta, A4, Legal, A5)">${pageSizeOptions}</select>
-      <div class="flex flex-wrap items-center gap-x-1 gap-y-0.5 border border-nl-border/70 rounded-md bg-nl-raised/50 px-1.5 py-1 max-w-full" title="Márgenes interiores de la hoja (dentro del rectángulo blanco). Solo tienen efecto en modo página.">
-        <span class="text-[10px] text-nl-muted uppercase tracking-wide hidden sm:inline shrink-0">Márgenes hoja</span>
+      <div class="flex flex-wrap items-center gap-x-1 gap-y-0.5 border border-nl-border/70 rounded-md bg-nl-raised/50 px-1.5 py-1 max-w-full" title="Márgenes interiores de la hoja en centímetros (dentro del rectángulo blanco). Solo tienen efecto en modo página.">
+        <span class="text-[10px] text-nl-muted uppercase tracking-wide hidden sm:inline shrink-0">Márgenes (cm)</span>
         <span class="text-[10px] text-slate-400 shrink-0" aria-hidden="true">↔</span>
-        <label class="sr-only" for="nl-editor-margin-x">Margen interior izquierdo y derecho en la página (píxeles)</label>
-        <input type="number" data-editor-margin-x id="nl-editor-margin-x" min="0" max="120" step="1" value="50" inputmode="numeric" class="w-[3.25rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1 py-1 text-xs text-slate-200 tabular-nums" title="Izquierda y derecha: espacio extra dentro del borde de la hoja (px). Solo modo página." />
+        <label class="sr-only" for="nl-editor-margin-x">Margen interior izquierdo y derecho en la página (centímetros)</label>
+        <input type="number" data-editor-margin-x id="nl-editor-margin-x" min="0" max="5" step="0.05" inputmode="decimal" class="w-[3.75rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1 py-1 text-xs text-slate-200 tabular-nums" title="Izquierda y derecha: espacio dentro del borde de la hoja (cm). Solo modo página." />
         <span class="text-[10px] text-slate-400 shrink-0" aria-hidden="true">↕</span>
-        <label class="sr-only" for="nl-editor-margin-y">Margen interior arriba y abajo en la página (píxeles)</label>
-        <input type="number" data-editor-margin-y id="nl-editor-margin-y" min="0" max="120" step="1" value="50" inputmode="numeric" class="w-[3.25rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1 py-1 text-xs text-slate-200 tabular-nums" title="Arriba y abajo: espacio extra dentro del borde de la hoja (px). Solo modo página." />
+        <label class="sr-only" for="nl-editor-margin-y">Margen interior arriba y abajo en la página (centímetros)</label>
+        <input type="number" data-editor-margin-y id="nl-editor-margin-y" min="0" max="5" step="0.05" inputmode="decimal" class="w-[3.75rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1 py-1 text-xs text-slate-200 tabular-nums" title="Arriba y abajo: espacio dentro del borde de la hoja (cm). Solo modo página." />
       </div>
-      <div class="flex flex-wrap items-center gap-1.5 ml-auto">
+      ${sep}
+      <div class="flex flex-wrap items-center gap-1.5">
         <div class="flex items-center gap-0.5 border border-nl-border rounded-md bg-nl-raised/80 px-1 py-0.5" title="Zoom solo visual (Ctrl/Cmd +/−/0)">
           <button type="button" data-zoom-out class="nl-tool-btn w-7 h-7 rounded text-slate-300 hover:bg-nl-bg text-lg leading-none" aria-label="Alejar">−</button>
           <span data-nl-zoom-label class="text-xs text-slate-400 tabular-nums min-w-[2.75rem] text-center">100%</span>

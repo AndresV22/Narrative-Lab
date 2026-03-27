@@ -294,7 +294,14 @@ export function applyFontSizePxToSelection(px, rangeOpt) {
   try {
     work.insertNode(out);
   } catch {
-    return;
+    if (!out.childNodes.length) return;
+    try {
+      for (const node of Array.from(out.childNodes)) {
+        work.insertNode(node);
+      }
+    } catch {
+      return;
+    }
   }
 
   if (first && last) {
@@ -340,7 +347,7 @@ export function clearSelectionFormattingToDefaults(host, rangeOpt) {
   if (!sel.rangeCount) return false;
   let range = sel.getRangeAt(0).cloneRange();
   if (range.collapsed) return false;
-  if (!host.contains(range.commonAncestorContainer)) return false;
+  if (!(range.commonAncestorContainer === host || host.contains(range.commonAncestorContainer))) return false;
 
   try {
     document.execCommand('styleWithCSS', false, 'true');

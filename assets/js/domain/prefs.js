@@ -13,14 +13,25 @@ const KEY_EDITOR_ZOOM = 'nl_editor_zoom_pct';
 const KEY_EDITOR_PAGE_MODE = 'nl_editor_page_mode';
 const KEY_EDITOR_PAGE_SIZE = 'nl_editor_page_size';
 const KEY_EDITOR_COMMENTS_OPEN = 'nl_editor_comments_panel_open';
-const KEY_EDITOR_MARGIN_X = 'nl_editor_margin_x_px';
-const KEY_EDITOR_MARGIN_Y = 'nl_editor_margin_y_px';
+/** Antes se guardaban en px; se migran a cm al leer. */
+const KEY_EDITOR_MARGIN_X_LEGACY_PX = 'nl_editor_margin_x_px';
+const KEY_EDITOR_MARGIN_Y_LEGACY_PX = 'nl_editor_margin_y_px';
+const KEY_EDITOR_MARGIN_X_CM = 'nl_editor_margin_x_cm';
+const KEY_EDITOR_MARGIN_Y_CM = 'nl_editor_margin_y_cm';
 
-/** Valor por defecto (px) si el usuario no ha guardado márgenes. */
-const EDITOR_MARGIN_DEFAULT_PX = 50;
+/** 1 CSS px = 1/96 in ≈ 0.264583 mm — valor por defecto equivalente a ~50 px en pantalla. */
+const PX_TO_CM = 2.54 / 96;
+
+/** Por defecto ~1,32 cm (equivalente a 50 px). */
+const EDITOR_MARGIN_DEFAULT_CM = Math.round(50 * PX_TO_CM * 100) / 100;
+
+/** Márgenes en cm (modo página): 0–5. */
+const EDITOR_MARGIN_MIN_CM = 0;
+const EDITOR_MARGIN_MAX_CM = 5;
+
+/** @type {boolean} */
+let legacyEditorMarginsMigrated = false;
 const KEY_SIDEBAR_COLLAPSED = 'nl_sidebar_collapsed';
-/** Panel derecho (progreso) visible al cargar la app si el valor es "1". Por defecto minimizado. */
-const KEY_RIGHT_PANEL_DEFAULT_OPEN = 'nl_right_panel_default_open';
 
 /** @typedef {'boundary'|'debounce'} ProgressMode */
 
@@ -181,32 +192,84 @@ export function setEditorCommentsPanelOpen(open) {
   localStorage.setItem(KEY_EDITOR_COMMENTS_OPEN, open ? '1' : '0');
 }
 
-/** Margen izquierdo/derecho dentro de la hoja en modo página (px), 0–120. Sin clave guardada: 50. */
-export function getEditorMarginHorizontalPx() {
-  const v = localStorage.getItem(KEY_EDITOR_MARGIN_X);
-  if (v === null || v === '') return EDITOR_MARGIN_DEFAULT_PX;
-  const n = parseInt(v, 10);
-  if (Number.isNaN(n)) return EDITOR_MARGIN_DEFAULT_PX;
-  return Math.min(120, Math.max(0, n));
+function migrateLegacyEditorMarginsToCm() {
+  if (legacyEditorMarginsMigrated) return;
+  legacyEditorMarginsMigrated = true;
+  for (const axis of ['x', 'y']) {
+    const cmKey = axis === 'x' ? KEY_EDITOR_MARGIN_X_CM : KEY_EDITOR_MARGIN_Y_CM;
+    const legKey = axis === 'x' ? KEY_EDITOR_MARGIN_X_LEGACY_PX : KEY_EDITOR_MARGIN_Y_LEGACY_PX;
+    const existingCm = localStorage.getItem(cmKey);
+    if (existingCm !== null && existingCm !== '') {
+      try {
+        localStorage.removeItem(legKey);
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+    const lx = localStorage.getItem(legKey);
+    if (lx === null || lx === '') continue;
+    const px = parseInt(lx, 10);
+    if (Number.isNaN(px)) {
+      try {
+        localStorage.removeItem(legKey);
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+    const cm = Math.round(Math.min(120, Math.max(0, px)) * PX_TO_CM * 100) / 100;
+    localStorage.setItem(cmKey, String(cm));
+    try {
+      localStorage.removeItem(legKey);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
-/** @param {number} px */
-export function setEditorMarginHorizontalPx(px) {
-  localStorage.setItem(KEY_EDITOR_MARGIN_X, String(Math.min(120, Math.max(0, Math.round(Number(px)) || 0))));
+/**
+ * Margen izquierdo/derecho dentro de la hoja en modo página (cm).
+ * @returns {number}
+ */
+export function getEditorMarginHorizontalCm() {
+  migrateLegacyEditorMarginsToCm();
+  const v = localStorage.getItem(KEY_EDITOR_MARGIN_X_CM);
+  if (v === null || v === '') return EDITOR_MARGIN_DEFAULT_CM;
+  const n = parseFloat(v.replace(',', '.'));
+  if (Number.isNaN(n)) return EDITOR_MARGIN_DEFAULT_CM;
+  return Math.min(EDITOR_MARGIN_MAX_CM, Math.max(EDITOR_MARGIN_MIN_CM, Math.round(n * 100) / 100));
 }
 
-/** Margen arriba/abajo dentro de la hoja en modo página (px), 0–120. Sin clave guardada: 50. */
-export function getEditorMarginVerticalPx() {
-  const v = localStorage.getItem(KEY_EDITOR_MARGIN_Y);
-  if (v === null || v === '') return EDITOR_MARGIN_DEFAULT_PX;
-  const n = parseInt(v, 10);
-  if (Number.isNaN(n)) return EDITOR_MARGIN_DEFAULT_PX;
-  return Math.min(120, Math.max(0, n));
+/** @param {number} cm */
+export function setEditorMarginHorizontalCm(cm) {
+  const x = Math.min(
+    EDITOR_MARGIN_MAX_CM,
+    Math.max(EDITOR_MARGIN_MIN_CM, Math.round((Number(cm) || 0) * 100) / 100)
+  );
+  localStorage.setItem(KEY_EDITOR_MARGIN_X_CM, String(x));
 }
 
-/** @param {number} px */
-export function setEditorMarginVerticalPx(px) {
-  localStorage.setItem(KEY_EDITOR_MARGIN_Y, String(Math.min(120, Math.max(0, Math.round(Number(px)) || 0))));
+/**
+ * Margen arriba/abajo dentro de la hoja en modo página (cm).
+ * @returns {number}
+ */
+export function getEditorMarginVerticalCm() {
+  migrateLegacyEditorMarginsToCm();
+  const v = localStorage.getItem(KEY_EDITOR_MARGIN_Y_CM);
+  if (v === null || v === '') return EDITOR_MARGIN_DEFAULT_CM;
+  const n = parseFloat(v.replace(',', '.'));
+  if (Number.isNaN(n)) return EDITOR_MARGIN_DEFAULT_CM;
+  return Math.min(EDITOR_MARGIN_MAX_CM, Math.max(EDITOR_MARGIN_MIN_CM, Math.round(n * 100) / 100));
+}
+
+/** @param {number} cm */
+export function setEditorMarginVerticalCm(cm) {
+  const x = Math.min(
+    EDITOR_MARGIN_MAX_CM,
+    Math.max(EDITOR_MARGIN_MIN_CM, Math.round((Number(cm) || 0) * 100) / 100)
+  );
+  localStorage.setItem(KEY_EDITOR_MARGIN_Y_CM, String(x));
 }
 
 /**
@@ -220,22 +283,6 @@ export function getSidebarCollapsed() {
 /** @param {boolean} collapsed */
 export function setSidebarCollapsed(collapsed) {
   localStorage.setItem(KEY_SIDEBAR_COLLAPSED, collapsed ? '1' : '0');
-}
-
-/**
- * Si es true, el panel derecho (progreso / estadísticas) se muestra al abrir la app o un libro.
- * El usuario puede seguir ocultándolo con el botón del encabezado.
- * @returns {boolean}
- */
-export function getRightPanelDefaultExpanded() {
-  return localStorage.getItem(KEY_RIGHT_PANEL_DEFAULT_OPEN) === '1';
-}
-
-/**
- * @param {boolean} expanded
- */
-export function setRightPanelDefaultExpanded(expanded) {
-  localStorage.setItem(KEY_RIGHT_PANEL_DEFAULT_OPEN, expanded ? '1' : '0');
 }
 
 /**
@@ -253,10 +300,11 @@ export function clearAllAppLocalPreferences() {
     KEY_EDITOR_PAGE_MODE,
     KEY_EDITOR_PAGE_SIZE,
     KEY_EDITOR_COMMENTS_OPEN,
-    KEY_EDITOR_MARGIN_X,
-    KEY_EDITOR_MARGIN_Y,
+    KEY_EDITOR_MARGIN_X_CM,
+    KEY_EDITOR_MARGIN_Y_CM,
+    KEY_EDITOR_MARGIN_X_LEGACY_PX,
+    KEY_EDITOR_MARGIN_Y_LEGACY_PX,
     KEY_SIDEBAR_COLLAPSED,
-    KEY_RIGHT_PANEL_DEFAULT_OPEN,
   ];
   for (const k of keys) {
     try {

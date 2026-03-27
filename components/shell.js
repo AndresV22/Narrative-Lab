@@ -22,15 +22,17 @@ export function shellMarkup() {
             <i class="fa-solid fa-gear text-sm" aria-hidden="true"></i>
           </button>
           <button type="button" data-action="author-profile" class="px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised" title="Perfil de autor">Autor</button>
-          <button type="button" data-action="save-snapshot" class="hidden lg:inline-flex px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none" title="Guardar snapshot del libro actual">Guardar snapshot</button>
-          <button type="button" data-action="toggle-right" class="hidden lg:inline-flex px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised" title="Panel lateral">Panel de progreso</button>
+          <div data-header-book-only class="hidden lg:flex items-center gap-2">
+            <button type="button" data-action="save-snapshot" class="inline-flex px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none" title="Guardar snapshot del libro actual">Guardar snapshot</button>
+            <button type="button" data-action="toggle-right" class="inline-flex px-2 py-1.5 rounded-lg border border-nl-border text-xs text-slate-300 hover:bg-nl-raised" title="Mostrar u ocultar panel de progreso">Panel de progreso</button>
+          </div>
         </div>
       </div>
     </header>
     <div class="flex flex-1 min-h-0">
       <aside data-sidebar class="w-64 shrink-0 border-r border-nl-border bg-nl-surface flex flex-col nl-scroll overflow-y-auto transition-[width] duration-200 ease-out" aria-label="Navegación del libro"></aside>
       <main data-main class="flex-1 min-w-0 flex flex-col bg-nl-bg nl-scroll overflow-y-auto" role="main" aria-label="Editor y vistas"></main>
-      <aside data-right class="hidden w-80 shrink-0 border-l border-nl-border bg-nl-surface flex-col nl-scroll overflow-y-auto" aria-label="Panel de información"></aside>
+      <aside data-right class="nl-right-panel shrink-0 flex flex-col bg-nl-surface nl-scroll transition-[width] duration-200 ease-out w-0 min-w-0 overflow-hidden border-l-0" aria-label="Panel de información"></aside>
     </div>
     <div data-modal-host></div>
   `;
