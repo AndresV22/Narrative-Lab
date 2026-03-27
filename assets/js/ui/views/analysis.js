@@ -2,16 +2,16 @@
  * Panel de análisis — Narrative Lab
  */
 
-import { escapeHtml } from '../../utils.js';
+import { escapeHtml } from '../../core/utils.js';
 import {
   detectNarrativeIssues,
   getBookHealth,
   getBookStats,
   getTimelineConflicts,
-} from '../../analysis.js';
+} from '../../narrative/analysis.js';
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  */
 export function renderAnalysisPanel(book) {
   const health = getBookHealth(book);
@@ -19,7 +19,7 @@ export function renderAnalysisPanel(book) {
   const narrativeOnly = detectNarrativeIssues(book);
   const timelineIssues = getTimelineConflicts(book);
 
-  const issueRow = (/** @type {import('../../types.js').NarrativeIssue} */ i) => {
+  const issueRow = (/** @type {import('../../core/types.js').NarrativeIssue} */ i) => {
     const icon =
       i.severity === 'warning'
         ? '<i class="fa-solid fa-triangle-exclamation text-amber-300/90 mr-1.5" aria-hidden="true"></i>'

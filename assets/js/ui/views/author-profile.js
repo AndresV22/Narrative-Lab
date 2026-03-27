@@ -2,12 +2,12 @@
  * Perfil de autor (workspace) — Narrative Lab
  */
 
-import { escapeHtml } from '../../utils.js';
-import { ageFromBirthDate } from '../../author-age.js';
-import { isoDateToDisplay } from '../../date-format.js';
+import { escapeHtml } from '../../core/utils.js';
+import { ageFromBirthDate } from '../../domain/author-age.js';
+import { isoDateToDisplay } from '../../core/date-format.js';
 
 /**
- * @param {import('../../types.js').AuthorProfile} profile
+ * @param {import('../../core/types.js').AuthorProfile} profile
  */
 export function renderAuthorProfileForm(profile) {
   const age = ageFromBirthDate(profile.birthDate || '');

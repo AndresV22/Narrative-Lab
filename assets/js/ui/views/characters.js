@@ -2,12 +2,16 @@
  * Personajes — Narrative Lab
  */
 
-import { CHARACTER_ROLES, characterRoleLabel } from '../../character-roles.js';
-import { escapeHtml } from '../../utils.js';
-import { listRelationships, CHARACTER_LINK_ROLE_OPTIONS } from '../../relations.js';
+import { CHARACTER_ROLES, characterRoleLabel } from '../../domain/character-roles.js';
+import { escapeHtml } from '../../core/utils.js';
+import {
+  listRelationships,
+  CHARACTER_LINK_ROLE_OPTIONS,
+  characterLinkPhraseForViewer,
+} from '../../narrative/relations.js';
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  */
 export function renderCharacterList(book, _app) {
   return `
@@ -43,8 +47,8 @@ export function renderCharacterList(book, _app) {
 }
 
 /**
- * @param {import('../../types.js').Book} book
- * @param {import('../../types.js').Character} ch
+ * @param {import('../../core/types.js').Book} book
+ * @param {import('../../core/types.js').Character} ch
  */
 export function renderCharacterForm(book, ch, _app) {
   const rels = listRelationships(book).filter(
@@ -58,12 +62,13 @@ export function renderCharacterForm(book, ch, _app) {
     .map((r) => {
       const otherId = r.from.id === ch.id ? r.to.id : r.from.id;
       const other = book.characters.find((c) => c.id === otherId);
-      const roleVal = r.meta && typeof r.meta.role === 'string' ? r.meta.role : '';
-      const roleLabel =
-        CHARACTER_LINK_ROLE_OPTIONS.find((o) => o.value === roleVal)?.label || roleVal || '—';
+      const phrase = characterLinkPhraseForViewer(ch.id, r, {
+        viewerName: ch.name || 'Sin nombre',
+        otherName: other?.name || otherId,
+      });
       return `
         <li class="flex flex-wrap gap-2 items-center justify-between text-sm border border-nl-border rounded-lg px-3 py-2 bg-nl-surface/50">
-          <span class="text-slate-300">${escapeHtml(other?.name || otherId)} — ${escapeHtml(roleLabel)}</span>
+          <span class="text-slate-300">${escapeHtml(phrase)}</span>
           <button type="button" data-cc-del-rel="${r.id}" class="text-red-400 text-xs hover:text-red-300">Quitar</button>
         </li>
       `;
@@ -115,6 +120,7 @@ export function renderCharacterForm(book, ch, _app) {
 
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
         <h3 class="text-sm font-medium text-slate-200">Relaciones con otros personajes</h3>
+        <p class="text-[11px] text-nl-muted leading-relaxed">El tipo de vínculo describe tu papel respecto al otro personaje <strong class="text-slate-400 font-medium">desde esta ficha</strong> (por ejemplo: si eliges «Soy hija de la otra persona», queda guardado que tú eres hija suya).</p>
         <ul class="space-y-1">${rows || '<li class="text-nl-muted text-xs">Ninguna aún.</li>'}</ul>
         <div class="flex flex-col sm:flex-row flex-wrap gap-2">
           <select data-cc-other class="flex-1 min-w-[140px] bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">

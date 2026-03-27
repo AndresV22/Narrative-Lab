@@ -2,12 +2,17 @@
  * Grafo, snapshots, relaciones y exportación — Narrative Lab
  */
 
-import { escapeHtml, sortByOrder } from '../../utils.js';
-import { formatDateTimeShort } from '../../date-format.js';
-import { listRelationships, CHARACTER_LINK_ROLE_OPTIONS } from '../../relations.js';
+import { escapeHtml, sortByOrder } from '../../core/utils.js';
+import { formatDateTimeShort } from '../../core/date-format.js';
+import {
+  listRelationships,
+  CHARACTER_LINK_ROLE_OPTIONS,
+  characterLinkCanonicalPhrase,
+} from '../../narrative/relations.js';
+import { CHARACTER_LINK_ROLE_EDGE_COLORS } from '../../narrative/graph-network.js';
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  * @param {string} kind
  * @param {string} id
  */
@@ -57,27 +62,60 @@ function formatSnapshotDate(iso) {
 }
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  * @param {import('../../app.js').App} app
  */
 export function renderGraphHost(book, app) {
-  const mode = app.state.graphMode || 'chars_chapters';
+  const mode = app.state.graphMode || 'characters';
+  const rootId = app.state.graphRootCharacterId ?? null;
   const btn = (m, label) =>
     `<button type="button" data-graph-mode="${m}" class="px-3 py-1.5 rounded-lg text-xs border ${
       mode === m ? 'border-indigo-500 bg-indigo-500/15 text-indigo-200' : 'border-nl-border text-slate-300 hover:bg-nl-raised'
     }">${label}</button>`;
+  const charsSorted = [...(book.characters || [])].sort((a, b) =>
+    (a.name || '').localeCompare(b.name || '', 'es')
+  );
+  const rootOpts =
+    `<option value="">— Personaje raíz (red ortogonal) —</option>` +
+    charsSorted
+      .map(
+        (c) =>
+          `<option value="${escapeHtml(c.id)}"${rootId === c.id ? ' selected' : ''}>${escapeHtml(c.name || 'Sin nombre')}</option>`
+      )
+      .join('');
+  const legendItems = CHARACTER_LINK_ROLE_OPTIONS.map(
+    (o) =>
+      `<span class="inline-flex items-center gap-1.5 text-[11px] text-slate-300"><span class="w-6 h-0.5 rounded shrink-0" style="background:${CHARACTER_LINK_ROLE_EDGE_COLORS[o.value] || '#64748b'}" title=""></span>${escapeHtml(o.legendLabel || o.label)}</span>`
+  ).join('');
+  const networkControls =
+    mode === 'characters'
+      ? `
+      <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 p-3 rounded-xl border border-nl-border bg-nl-surface/50">
+        <label class="flex flex-col gap-1 text-xs text-nl-muted shrink-0">
+          Red desde personaje
+          <select data-graph-root class="min-w-[12rem] bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm text-slate-200">
+            ${rootOpts}
+          </select>
+        </label>
+        <div class="flex flex-wrap gap-x-4 gap-y-2 items-center flex-1 min-w-0">
+          <span class="text-[10px] uppercase tracking-wide text-nl-muted shrink-0">Leyenda</span>
+          <div class="flex flex-wrap gap-x-3 gap-y-1">${legendItems}</div>
+        </div>
+      </div>`
+      : '';
   return `
     <div class="nl-view-wide nl-view-grow space-y-4">
       <div>
         <h2 class="text-lg font-semibold text-white mb-1">Mapa de relaciones</h2>
-        <p class="text-sm text-nl-muted">Visualización según el alcance elegido. La vista «Relaciones» sigue siendo donde se editan los vínculos.</p>
+        <p class="text-sm text-nl-muted">En «Solo personajes», elige un raíz para ver su red conexa con líneas solo horizontales/verticales y color por tipo de vínculo. Otros modos: vista clásica por anillos.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         ${btn('characters', 'Solo personajes')}
         ${btn('chars_chapters', 'Personajes + capítulos')}
         ${btn('all', 'Todo')}
       </div>
-      <div data-graph-host class="min-h-[420px] flex-1 rounded-xl border border-nl-border bg-nl-bg overflow-hidden"></div>
+      ${networkControls}
+      <div data-graph-host class="min-h-[420px] flex-1 rounded-xl border border-nl-border bg-nl-bg overflow-auto"></div>
     </div>
   `;
 }
@@ -142,12 +180,17 @@ export function renderRelations(book, _app) {
       const a = entityLabel(book, r.from.kind, r.from.id);
       const b = entityLabel(book, r.to.kind, r.to.id);
       const desc = typeof r.description === 'string' ? r.description : '';
+      const ccPhrase =
+        r.type === 'character_character' && r.from.kind === 'character' && r.to.kind === 'character'
+          ? characterLinkCanonicalPhrase(r, a, b)
+          : '';
       return `
         <li class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-2">
           <div class="flex justify-between gap-2 items-start">
             <div>
               <span class="text-[10px] uppercase tracking-wider text-indigo-300/90">${escapeHtml(relTypeLabel(r.type))}</span>
               <p class="text-sm text-slate-200 mt-1">${escapeHtml(a)} → ${escapeHtml(b)}</p>
+              ${ccPhrase ? `<p class="text-xs text-slate-400 mt-1">${escapeHtml(ccPhrase)}</p>` : ''}
             </div>
             <button type="button" data-rel-del="${r.id}" class="text-red-400 text-sm shrink-0">✕</button>
           </div>
@@ -214,6 +257,7 @@ export function renderRelations(book, _app) {
               <button type="button" data-wz-ee-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
             </div>
             <div data-rel-wiz-panel-cc class="hidden space-y-2">
+              <p class="text-[11px] text-nl-muted leading-relaxed">La <strong class="text-slate-400 font-medium">primera persona</strong> es quien cumple el rol respecto a la <strong class="text-slate-400 font-medium">segunda</strong> (igual que al vincular desde la ficha de la primera).</p>
               <select data-wz-cc-a class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
                 <option value="">Personaje A</option>${charOpts}
               </select>
@@ -278,6 +322,7 @@ export function renderRelations(book, _app) {
       </section>
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
         <h3 class="text-sm font-medium text-slate-200">Personaje ↔ Personaje</h3>
+        <p class="text-[11px] text-nl-muted leading-relaxed">Personaje A es quien cumple el rol respecto a B (A es la «primera» del vínculo guardado).</p>
         <div class="flex flex-wrap gap-2">
           <select data-rel-cc-a class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-sm">
             <option value="">Personaje A</option>
@@ -309,7 +354,7 @@ export function renderExportPanel(_book, _app) {
     <div class="nl-view space-y-8">
       <div>
         <h2 class="text-lg font-semibold text-white mb-2">Exportar libro</h2>
-        <p class="text-sm text-nl-muted">Incluye prólogo, capítulos, escenas, epílogo, extras y frases destacadas.</p>
+        <p class="text-sm text-nl-muted">Solo la obra: prólogo, capítulos, escenas y epílogo (sin sinopsis ni notas del autor).</p>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <button type="button" data-exp="md" class="py-3 rounded-lg border border-nl-border hover:bg-nl-raised text-sm">Markdown (.md)</button>

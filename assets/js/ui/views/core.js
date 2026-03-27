@@ -2,10 +2,10 @@
  * Metadatos y envoltorio del editor — Narrative Lab
  */
 
-import { escapeHtml } from '../../utils.js';
-import { formatDateDDMMYYYY } from '../../date-format.js';
-import { editorCardWithHost } from '../../editor.js';
-import { NOVEL_CATEGORY_OPTIONS, NOVEL_CATEGORY_OTHER } from '../../book-categories.js';
+import { escapeHtml } from '../../core/utils.js';
+import { formatDateDDMMYYYY } from '../../core/date-format.js';
+import { editorCardWithHost } from '../../editor/editor.js';
+import { NOVEL_CATEGORY_OPTIONS, NOVEL_CATEGORY_OTHER } from '../../domain/book-categories.js';
 
 export function wrapEditorSection(title, _field) {
   return `
@@ -17,7 +17,7 @@ export function wrapEditorSection(title, _field) {
 }
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  */
 export function renderBookSettings(book) {
   const hasCover = !!book.coverImageDataUrl;

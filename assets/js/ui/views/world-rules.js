@@ -2,11 +2,11 @@
  * Reglas del mundo (lista y editor) — Narrative Lab
  */
 
-import { escapeHtml } from '../../utils.js';
-import { editorCardWithHost } from '../../editor.js';
+import { escapeHtml } from '../../core/utils.js';
+import { editorCardWithHost } from '../../editor/editor.js';
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  */
 export function renderWorldRulesList(book) {
   const rules = book.rules || [];
@@ -37,7 +37,7 @@ export function renderWorldRulesList(book) {
 }
 
 /**
- * @param {import('../../types.js').WorldRule} rule
+ * @param {import('../../core/types.js').WorldRule} rule
  */
 export function renderWorldRuleEditor(rule) {
   return `

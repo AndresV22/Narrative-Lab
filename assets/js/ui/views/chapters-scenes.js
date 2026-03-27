@@ -2,11 +2,11 @@
  * Capítulos, escenas y actos — Narrative Lab
  */
 
-import { escapeHtml, sortByOrder } from '../../utils.js';
-import { editorCardWithHost } from '../../editor.js';
+import { escapeHtml, sortByOrder } from '../../core/utils.js';
+import { editorCardWithHost } from '../../editor/editor.js';
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  * @param {import('../../app.js').App} app
  */
 export function renderChaptersList(book, _app) {
@@ -33,7 +33,7 @@ export function renderChaptersList(book, _app) {
 }
 
 /**
- * @param {import('../../types.js').Chapter} ch
+ * @param {import('../../core/types.js').Chapter} ch
  */
 export function renderChapterEditor(ch) {
   const scenes = sortByOrder(ch.scenes, 'order');
@@ -68,8 +68,8 @@ export function renderChapterEditor(ch) {
 }
 
 /**
- * @param {import('../../types.js').Chapter} ch
- * @param {import('../../types.js').Scene} sc
+ * @param {import('../../core/types.js').Chapter} ch
+ * @param {import('../../core/types.js').Scene} sc
  */
 export function renderSceneEditor(ch, sc) {
   return `
@@ -83,7 +83,7 @@ export function renderSceneEditor(ch, sc) {
 
 /**
  * Lista de actos; el formulario completo está en {@link renderActEditor}.
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  */
 export function renderActsList(book) {
   const acts = sortByOrder(book.acts || [], 'order');
@@ -118,8 +118,8 @@ export function renderActsList(book) {
 }
 
 /**
- * @param {import('../../types.js').Book} book
- * @param {import('../../types.js').Act} act
+ * @param {import('../../core/types.js').Book} book
+ * @param {import('../../core/types.js').Act} act
  */
 export function renderActEditor(book, act) {
   const chapters = sortByOrder(book.chapters, 'order');

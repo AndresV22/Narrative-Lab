@@ -3,21 +3,31 @@
  */
 
 import '../css/app.css';
-import { loadWorkspace, scheduleSave, flushSave, setSaveStatusCallback, configureAutosaveDelay } from './storage.js';
+import {
+  loadWorkspace,
+  scheduleSave,
+  flushSave,
+  setSaveStatusCallback,
+  configureAutosaveDelay,
+  deleteWorkspaceDatabase,
+} from './domain/storage.js';
 import {
   getAutosaveMs,
   getProgressMode,
   getSpellcheckEnabled,
   setLastExportNow,
   getSnapshotIntervalMinutes,
-} from './prefs.js';
+  clearAllAppLocalPreferences,
+} from './domain/prefs.js';
 import {
   createEmptyBook,
   createHighlight,
   createEditorComment,
   createEmptyAuthorProfile,
-} from './models.js';
-import { debounce, escapeHtml, uuid } from './utils.js';
+  createEmptyWorkspace,
+  migrateWorkspace,
+} from './domain/models.js';
+import { debounce, escapeHtml, uuid } from './core/utils.js';
 import {
   mountShell,
   renderSidebar,
@@ -30,25 +40,26 @@ import {
   renderImportModal,
   updateHeaderSnapshotButton,
   saveSnapshotFromHeader,
-} from './ui.js';
-import { showToast } from './toast.js';
-import { RichEditor, bindToolbar, computeEditorRealtimeMetrics } from './editor.js';
+} from './ui/ui.js';
+import { showToast } from './ui/toast.js';
+import { RichEditor, bindToolbar, computeEditorRealtimeMetrics } from './editor/editor.js';
 import {
   editorSourceId,
   findCommentMarkEl,
   surroundSelectionWithCommentMark,
   surroundSelectionWithHighlightMark,
   unwrapCommentMarkInHost,
-} from './editor-helpers.js';
-import { getEditorCommentsPanelOpen, setEditorCommentsPanelOpen } from './prefs.js';
+} from './editor/editor-helpers.js';
+import { getEditorCommentsPanelOpen, setEditorCommentsPanelOpen } from './domain/prefs.js';
 import {
   downloadWorkspaceJson,
   readJsonFile,
   parseAndValidate,
   mergeWorkspaces,
   mergeWorkspacesKeepBoth,
-} from './import-export-workspace.js';
-import { inferChapterIdForSceneHighlight } from './highlight-source.js';
+} from './domain/import-export-workspace.js';
+import { inferChapterIdForSceneHighlight } from './editor/highlight-source.js';
+import { clearKanbanTaskModal } from './ui/views/kanban.js';
 
 /**
  * @typedef {Object} NavState
@@ -63,15 +74,18 @@ import { inferChapterIdForSceneHighlight } from './highlight-source.js';
  * @property {boolean} afterNewBookMeta
  * @property {boolean} rightOpen
  * @property {'characters'|'chars_chapters'|'all'} [graphMode]
+ * @property {string|null} [graphRootCharacterId] Personaje raíz para la red ortogonal (modo «Solo personajes»)
  * @property {string|null} [guideArticleId]
  * @property {string|null} [timelineEventId]
  * @property {string|null} [highlightId]
  * @property {string|null} [actId]
+ * @property {string|null} [kanbanBoardId]
+ * @property {string|null} [kanbanTaskId]
  */
 
 export class App {
   constructor() {
-    /** @type {import('./types.js').Workspace|null} */
+    /** @type {import('./core/types.js').Workspace|null} */
     this.workspace = null;
     /** @type {NavState} */
     this.state = {
@@ -85,15 +99,18 @@ export class App {
       worldRuleId: null,
       afterNewBookMeta: false,
       rightOpen: true,
-      graphMode: 'chars_chapters',
+      graphMode: 'characters',
+      graphRootCharacterId: null,
       guideArticleId: null,
       timelineEventId: null,
       highlightId: null,
       actId: null,
+      kanbanBoardId: null,
+      kanbanTaskId: null,
     };
     /** @type {ReturnType<typeof setInterval> | null} */
     this.autoSnapshotTimer = null;
-    /** @type {import('./editor.js').EditorRealtimeMetrics | null} */
+    /** @type {import('./editor/editor.js').EditorRealtimeMetrics | null} */
     this.editorMetrics = null;
     /** @type {{ destroy: () => void } | null} */
     this.graphHandle = null;
@@ -146,7 +163,7 @@ export class App {
   }
 
   /**
-   * @returns {import('./types.js').Book|null}
+   * @returns {import('./core/types.js').Book|null}
    */
   getCurrentBook() {
     if (!this.workspace || !this.state.bookId) return null;
@@ -482,7 +499,7 @@ export class App {
 
   /**
    * Navega al origen de una frase destacada.
-   * @param {import('./types.js').Highlight} h
+   * @param {import('./core/types.js').Highlight} h
    */
   openHighlightSource(h) {
     const book = this.getCurrentBook();
@@ -546,6 +563,9 @@ export class App {
     this.state.worldRuleId = null;
     this.state.highlightId = null;
     this.state.actId = null;
+    this.state.kanbanBoardId = null;
+    this.state.kanbanTaskId = null;
+    clearKanbanTaskModal(this);
     this.state.view = 'library';
     this.refresh();
   }
@@ -558,6 +578,9 @@ export class App {
     this.state.actId = null;
     this.state.guideArticleId = null;
     this.state.timelineEventId = null;
+    this.state.kanbanBoardId = null;
+    this.state.kanbanTaskId = null;
+    clearKanbanTaskModal(this);
     this.state.view = 'authorProfile';
     this.refresh();
   }
@@ -590,6 +613,11 @@ export class App {
       this.state.chapterId = null;
       this.state.sceneId = null;
     }
+    if (view !== 'kanbanBoard') {
+      this.state.kanbanBoardId = null;
+      this.state.kanbanTaskId = null;
+      clearKanbanTaskModal(this);
+    }
     this.refresh();
   }
 
@@ -609,6 +637,9 @@ export class App {
     this.state.timelineEventId = null;
     this.state.chapterId = null;
     this.state.sceneId = null;
+    this.state.kanbanBoardId = null;
+    this.state.kanbanTaskId = null;
+    clearKanbanTaskModal(this);
     this.refresh();
   }
 
@@ -686,6 +717,9 @@ export class App {
     this.state.afterNewBookMeta = true;
     this.state.view = 'settings';
     this.state.guideArticleId = null;
+    this.state.kanbanBoardId = null;
+    this.state.kanbanTaskId = null;
+    clearKanbanTaskModal(this);
     this.persist();
     this.refresh();
   }
@@ -705,6 +739,9 @@ export class App {
     this.state.actId = null;
     this.state.timelineEventId = null;
     this.state.guideArticleId = null;
+    this.state.kanbanBoardId = null;
+    this.state.kanbanTaskId = null;
+    clearKanbanTaskModal(this);
     this.refresh();
   }
 
@@ -712,6 +749,9 @@ export class App {
     this.state.bookId = null;
     this.state.view = 'library';
     this.state.actId = null;
+    this.state.kanbanBoardId = null;
+    this.state.kanbanTaskId = null;
+    clearKanbanTaskModal(this);
     this.disposeEditor();
     this.refresh();
   }
@@ -864,6 +904,52 @@ export class App {
     this.refreshSidebar();
   }
 
+  /**
+   * Borra el workspace en IndexedDB, las preferencias locales de la app y reinicia un workspace vacío.
+   */
+  async wipeAllLocalData() {
+    if (!this.els || !this.workspace) return;
+    this.disposeEditor();
+    if (this.autoSnapshotTimer) {
+      clearInterval(this.autoSnapshotTimer);
+      this.autoSnapshotTimer = null;
+    }
+    this.graphHandle?.destroy();
+    this.graphHandle = null;
+    await deleteWorkspaceDatabase();
+    clearAllAppLocalPreferences();
+    configureAutosaveDelay(getAutosaveMs());
+    this.workspace = migrateWorkspace(createEmptyWorkspace());
+    if (!this.workspace.authorProfile) {
+      this.workspace.authorProfile = createEmptyAuthorProfile();
+    }
+    await flushSave(this.workspace);
+    this.pendingImport = null;
+    this.state = {
+      bookId: null,
+      view: 'library',
+      chapterId: null,
+      sceneId: null,
+      characterId: null,
+      noteId: null,
+      extraId: null,
+      worldRuleId: null,
+      afterNewBookMeta: false,
+      rightOpen: this.state.rightOpen,
+      graphMode: 'characters',
+      graphRootCharacterId: null,
+      guideArticleId: null,
+      timelineEventId: null,
+      highlightId: null,
+      actId: null,
+      kanbanBoardId: null,
+      kanbanTaskId: null,
+    };
+    this.els.modalHost.innerHTML = '';
+    this.refresh();
+    showToast('Se eliminaron los datos del navegador. Tienes un workspace vacío.', 'success');
+  }
+
   triggerImportWorkspace() {
     const input = document.getElementById('workspace-import-input');
     if (!input || !('click' in input)) return;
@@ -929,7 +1015,7 @@ export class App {
    */
   async createFromTemplateId(templateId) {
     if (!this.workspace) return;
-    const { createChapter, createScene } = await import('./models.js');
+    const { createChapter, createScene } = await import('./domain/models.js');
     const data = await this.loadTemplateData();
     const tpl = data.templates.find((/** @type {any} */ t) => t.id === templateId);
     if (!tpl) return;

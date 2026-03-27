@@ -2,11 +2,11 @@
  * Guía de escritura, ajustes de app, notas y destacados — Narrative Lab
  */
 
-import { escapeHtml } from '../../utils.js';
-import { formatHighlightSource, canNavigateHighlightSource } from '../../highlight-source.js';
-import { editorCardWithHost } from '../../editor.js';
-import { getAutosaveMs, getProgressMode, getSpellcheckEnabled, getSnapshotIntervalMinutes } from '../../prefs.js';
-import { WRITING_GUIDE_ARTICLES, getWritingGuideArticle } from '../../writing-guide-content.js';
+import { escapeHtml } from '../../core/utils.js';
+import { formatHighlightSource, canNavigateHighlightSource } from '../../editor/highlight-source.js';
+import { editorCardWithHost } from '../../editor/editor.js';
+import { getAutosaveMs, getProgressMode, getSpellcheckEnabled, getSnapshotIntervalMinutes } from '../../domain/prefs.js';
+import { WRITING_GUIDE_ARTICLES, getWritingGuideArticle } from '../../domain/writing-guide-content.js';
 
 /**
  * @param {import('../../app.js').App} app
@@ -129,11 +129,20 @@ export function renderAppSettingsPanel() {
       </section>
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3" data-export-reminder-section>
         <h3 class="text-sm font-medium text-slate-200">Copia de seguridad</h3>
-        <p class="text-xs text-nl-muted">Recuerda exportar el workspace JSON desde la barra lateral. Aquí puedes ver cuándo marcaste la última exportación en este dispositivo.</p>
+        <p class="text-xs text-nl-muted">Exporta el workspace JSON desde aquí o desde la barra lateral. La fecha muestra la última exportación registrada en este dispositivo.</p>
         <p class="text-sm text-slate-300" data-last-export-label></p>
-        <button type="button" data-mark-exported class="px-4 py-2 rounded-lg border border-nl-border text-sm text-slate-200 hover:bg-nl-raised">He exportado ahora</button>
+        <button type="button" data-export-workspace-settings class="px-4 py-2 rounded-lg border border-nl-border text-sm text-slate-200 hover:bg-nl-raised">Exportar workspace (JSON)</button>
       </section>
       <button type="button" data-save-app-settings class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500">Guardar ajustes</button>
+      <section class="p-4 rounded-xl border border-red-500/25 bg-red-500/5 space-y-3 mt-10">
+        <h3 class="text-sm font-medium text-red-200">Zona de peligro</h3>
+        <p class="text-xs text-nl-muted">Elimina por completo el workspace guardado en este navegador (IndexedDB) y las preferencias locales de la app. Libera el espacio ocupado por estos datos.</p>
+        <button type="button" data-open-clear-workspace-modal class="w-full px-4 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-sm text-red-200 hover:bg-red-500/20">Eliminar datos del navegador…</button>
+      </section>
+      <footer class="mt-10 pt-6 border-t border-nl-border text-center text-xs text-nl-muted space-y-2">
+        <p class="text-slate-400">Copyright © ${new Date().getFullYear()} · Creado por Andrés Alcaíno.</p>
+        <p class="tabular-nums">Versión ${__APP_VERSION__}</p>
+      </footer>
     </div>
   `;
 }
@@ -172,7 +181,7 @@ export function renderNoteEditor(note, _app) {
 
 /**
  * Lista compacta; el editor completo está en {@link renderHighlightEditor}.
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  */
 export function renderHighlightsList(book) {
   const list = book.highlights || [];
@@ -205,8 +214,8 @@ export function renderHighlightsList(book) {
 }
 
 /**
- * @param {import('../../types.js').Book} book
- * @param {import('../../types.js').Highlight} h
+ * @param {import('../../core/types.js').Book} book
+ * @param {import('../../core/types.js').Highlight} h
  */
 export function renderHighlightEditor(book, h) {
   const src = formatHighlightSource(book, h);

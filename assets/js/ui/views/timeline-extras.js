@@ -2,11 +2,11 @@
  * Línea de tiempo y extras — Narrative Lab
  */
 
-import { escapeHtml, sortByOrder } from '../../utils.js';
-import { editorCardWithHost } from '../../editor.js';
+import { escapeHtml, sortByOrder } from '../../core/utils.js';
+import { editorCardWithHost } from '../../editor/editor.js';
 
 /**
- * @param {import('../../types.js').Book} book
+ * @param {import('../../core/types.js').Book} book
  * @param {import('../../app.js').App} app
  */
 export function renderTimelineMerged(book, app) {
@@ -98,8 +98,8 @@ export function renderExtrasList(book) {
 }
 
 /**
- * @param {import('../../types.js').Book} book
- * @param {import('../../types.js').ExtraBlock} eb
+ * @param {import('../../core/types.js').Book} book
+ * @param {import('../../core/types.js').ExtraBlock} eb
  */
 export function renderExtraEditor(book, eb) {
   return `

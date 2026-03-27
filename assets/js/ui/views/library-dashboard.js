@@ -2,8 +2,8 @@
  * Dashboard de biblioteca — Narrative Lab
  */
 
-import { escapeHtml } from '../../utils.js';
-import { aggregateWorkspaceStats } from '../../workspace-stats.js';
+import { escapeHtml } from '../../core/utils.js';
+import { aggregateWorkspaceStats } from '../../narrative/workspace-stats.js';
 
 /** @param {number} cx @param {number} cy @param {number} r @param {number} angleRad */
 function polar(cx, cy, r, angleRad) {
