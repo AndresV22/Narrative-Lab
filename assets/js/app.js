@@ -40,6 +40,8 @@ import {
   renderImportModal,
   updateHeaderSnapshotButton,
   saveSnapshotFromHeader,
+  showEditorCommentBodyModal,
+  showConfirmModal,
 } from './ui/ui.js';
 import { showToast } from './ui/toast.js';
 import { RichEditor, bindToolbar, computeEditorRealtimeMetrics } from './editor/editor.js';
@@ -81,6 +83,7 @@ import { clearKanbanTaskModal } from './ui/views/kanban.js';
  * @property {string|null} [actId]
  * @property {string|null} [kanbanBoardId]
  * @property {string|null} [kanbanTaskId]
+ * @property {'stats'|'comments'} [rightPanelMode] Contenido del panel derecho global
  */
 
 export class App {
@@ -98,7 +101,7 @@ export class App {
       extraId: null,
       worldRuleId: null,
       afterNewBookMeta: false,
-      rightOpen: true,
+      rightOpen: false,
       graphMode: 'characters',
       graphRootCharacterId: null,
       guideArticleId: null,
@@ -107,6 +110,7 @@ export class App {
       actId: null,
       kanbanBoardId: null,
       kanbanTaskId: null,
+      rightPanelMode: 'stats',
     };
     /** @type {ReturnType<typeof setInterval> | null} */
     this.autoSnapshotTimer = null;
@@ -254,6 +258,16 @@ export class App {
     });
 
     this._editorContext = { kind, id, chapterId };
+    if (getEditorCommentsPanelOpen()) {
+      this.state.rightPanelMode = 'comments';
+      this.state.rightOpen = true;
+      if (this.els) {
+        this.els.right.classList.remove('hidden');
+        this.els.right.classList.add('lg:flex');
+      }
+    } else {
+      this.state.rightPanelMode = 'stats';
+    }
     const toolbar =
       el.closest('.nl-editor-card')?.querySelector('[data-nl-toolbar]') || el.previousElementSibling;
     this._editorToolbarCleanup?.();
@@ -264,44 +278,39 @@ export class App {
         onToggleCommentsPanel: () => this.toggleEditorCommentsPanel(el),
       });
     }
-    this.syncEditorCommentsPanel(el);
-    const aside = el.closest('.nl-editor-card')?.querySelector('[data-nl-comments-aside]');
-    const closeBtn = aside?.querySelector('[data-nl-comments-close]');
-    if (closeBtn && !closeBtn.dataset.nlBound) {
-      closeBtn.dataset.nlBound = '1';
-      closeBtn.addEventListener('click', () => {
-        setEditorCommentsPanelOpen(false);
-        if (aside) {
-          aside.classList.add('hidden');
-          aside.classList.remove('flex');
-        }
-      });
+    if (this.els) {
+      renderRightPanel(this);
     }
   }
 
   /**
-   * @param {HTMLElement} hostEl
+   * @param {HTMLElement} _hostEl
    */
-  toggleEditorCommentsPanel(hostEl) {
+  toggleEditorCommentsPanel(_hostEl) {
     const next = !getEditorCommentsPanelOpen();
     setEditorCommentsPanelOpen(next);
-    const aside = hostEl.closest('.nl-editor-card')?.querySelector('[data-nl-comments-aside]');
-    if (aside) {
-      aside.classList.toggle('hidden', !next);
-      aside.classList.toggle('flex', next);
+    if (!this.els) return;
+    if (next) {
+      this.state.rightPanelMode = 'comments';
+      this.state.rightOpen = true;
+      this.els.right.classList.remove('hidden');
+      this.els.right.classList.add('lg:flex');
+    } else {
+      this.state.rightPanelMode = 'stats';
+      this.state.rightOpen = false;
+      this.els.right.classList.add('hidden');
+      this.els.right.classList.remove('lg:flex');
     }
+    renderRightPanel(this);
   }
 
   /**
    * @param {HTMLElement} hostEl
    */
   syncEditorCommentsPanel(hostEl) {
-    const aside = hostEl.closest('.nl-editor-card')?.querySelector('[data-nl-comments-aside]');
-    const list = aside?.querySelector('[data-nl-comments-list]');
-    if (!aside || !list) return;
-    const open = getEditorCommentsPanelOpen();
-    aside.classList.toggle('hidden', !open);
-    aside.classList.toggle('flex', open);
+    if (this.state.rightPanelMode !== 'comments' || !this.els) return;
+    const list = this.els.right.querySelector('[data-nl-comments-list]');
+    if (!list) return;
 
     const book = this.getCurrentBook();
     const ctx = this._editorContext;
@@ -366,12 +375,16 @@ export class App {
    * @param {string} commentId
    * @param {HTMLElement} hostEl
    */
-  editEditorComment(commentId, hostEl) {
+  async editEditorComment(commentId, hostEl) {
     const book = this.getCurrentBook();
-    if (!book) return;
+    if (!book || !this.els) return;
     const c = book.editorComments?.find((x) => x.id === commentId);
     if (!c) return;
-    const next = window.prompt('Editar comentario:', c.body);
+    const next = await showEditorCommentBodyModal(this, {
+      title: 'Editar comentario',
+      initialValue: c.body || '',
+      okLabel: 'Guardar',
+    });
     if (next == null) return;
     c.body = String(next).trim();
     if (!c.body) return;
@@ -384,10 +397,16 @@ export class App {
    * @param {string} commentId
    * @param {HTMLElement} hostEl
    */
-  deleteEditorComment(commentId, hostEl) {
+  async deleteEditorComment(commentId, hostEl) {
     const book = this.getCurrentBook();
-    if (!book || !this.editor) return;
-    if (!window.confirm('¿Eliminar este comentario?')) return;
+    if (!book || !this.editor || !this.els) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar comentario',
+      message: '¿Eliminar este comentario? El marcado en el texto se quitará.',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     unwrapCommentMarkInHost(this.editor.host, commentId);
     book.editorComments = (book.editorComments || []).filter((c) => c.id !== commentId);
     const ctx = this._editorContext;
@@ -403,20 +422,43 @@ export class App {
    * @param {string|null} id
    * @param {string|null} chapterId
    */
-  tryAddEditorComment(kind, id, chapterId) {
+  async tryAddEditorComment(kind, id, chapterId) {
     const book = this.getCurrentBook();
-    if (!book || !this.editor) return;
-    const text = this.editor.getSelectedText();
-    if (!text) {
-      alert('Selecciona un fragmento de texto para comentar.');
+    if (!book || !this.editor || !this.els) return;
+    const sel0 = window.getSelection();
+    if (!sel0?.rangeCount) {
+      showToast('Selecciona un fragmento de texto para comentar.', 'warning');
       return;
     }
-    const body = window.prompt('Comentario:');
+    const r0 = sel0.getRangeAt(0);
+    if (r0.collapsed || !this.editor.host.contains(r0.commonAncestorContainer)) {
+      showToast('Selecciona un fragmento de texto para comentar.', 'warning');
+      return;
+    }
+    const savedRange = r0.cloneRange();
+    const text = savedRange.toString().trim();
+    if (!text) {
+      showToast('Selecciona un fragmento de texto para comentar.', 'warning');
+      return;
+    }
+    const body = await showEditorCommentBodyModal(this, {
+      title: 'Nuevo comentario',
+      hint: 'El comentario quedará asociado al texto seleccionado.',
+      okLabel: 'Añadir',
+    });
     if (body == null || !String(body).trim()) return;
     const cid = uuid();
     this.editor.focus();
+    const sel1 = window.getSelection();
+    sel1.removeAllRanges();
+    try {
+      sel1.addRange(savedRange);
+    } catch {
+      showToast('No se pudo restaurar la selección. Vuelve a seleccionar el texto.', 'error');
+      return;
+    }
     if (!surroundSelectionWithCommentMark(cid)) {
-      alert('No se pudo aplicar el comentario a esta selección.');
+      showToast('No se pudo aplicar el comentario a esta selección.', 'error');
       return;
     }
     const sid = editorSourceId(kind, id);
@@ -944,6 +986,7 @@ export class App {
       actId: null,
       kanbanBoardId: null,
       kanbanTaskId: null,
+      rightPanelMode: 'stats',
     };
     this.els.modalHost.innerHTML = '';
     this.refresh();

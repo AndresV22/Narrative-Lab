@@ -18,8 +18,10 @@ import { configureAutosaveDelay } from '../domain/storage.js';
 import {
   exportReminderSummaryLine,
   getAutosaveMs,
+  getRightPanelDefaultExpanded,
   setAutosaveMs,
   setProgressMode,
+  setRightPanelDefaultExpanded,
   setSpellcheckEnabled,
   setSnapshotIntervalMinutes,
 } from '../domain/prefs.js';
@@ -366,6 +368,14 @@ function bindAppSettingsPanel(main, app) {
     setSpellcheckEnabled(!!sc?.checked);
     const snapSel = /** @type {HTMLSelectElement|null} */ (main.querySelector('[data-app-snapshot-interval]'));
     if (snapSel) setSnapshotIntervalMinutes(parseInt(snapSel.value, 10) || 0);
+    const rp = /** @type {HTMLInputElement|null} */ (main.querySelector('[data-app-right-panel-default]'));
+    setRightPanelDefaultExpanded(!!rp?.checked);
+    if (app.els) {
+      const open = getRightPanelDefaultExpanded();
+      app.state.rightOpen = open;
+      app.els.right.classList.toggle('hidden', !open);
+      app.els.right.classList.toggle('lg:flex', open);
+    }
     showToast('Ajustes guardados correctamente', 'success');
     app.refresh();
   });

@@ -5,7 +5,13 @@
 import { escapeHtml } from '../../core/utils.js';
 import { formatHighlightSource, canNavigateHighlightSource } from '../../editor/highlight-source.js';
 import { editorCardWithHost } from '../../editor/editor.js';
-import { getAutosaveMs, getProgressMode, getSpellcheckEnabled, getSnapshotIntervalMinutes } from '../../domain/prefs.js';
+import {
+  getAutosaveMs,
+  getProgressMode,
+  getRightPanelDefaultExpanded,
+  getSpellcheckEnabled,
+  getSnapshotIntervalMinutes,
+} from '../../domain/prefs.js';
 import { WRITING_GUIDE_ARTICLES, getWritingGuideArticle } from '../../domain/writing-guide-content.js';
 
 /**
@@ -99,6 +105,14 @@ export function renderAppSettingsPanel() {
         <p class="text-xs text-nl-muted">Se aplica al guardar o al volver a abrir un editor.</p>
       </section>
       <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
+        <h3 class="text-sm font-medium text-slate-200">Panel derecho (progreso)</h3>
+        <p class="text-xs text-nl-muted">Estadísticas, métricas y comentarios del fragmento activo. Puedes mostrarlo u ocultarlo también con el botón «Panel de progreso» en la barra superior.</p>
+        <label class="flex items-start gap-3 text-sm text-slate-300 cursor-pointer">
+          <input type="checkbox" class="mt-1 rounded border-nl-border" data-app-right-panel-default ${getRightPanelDefaultExpanded() ? 'checked' : ''} />
+          <span>Mostrar el panel derecho al iniciar la aplicación o al abrir un libro</span>
+        </label>
+      </section>
+      <section class="p-4 rounded-xl border border-nl-border bg-nl-surface space-y-3">
         <h3 class="text-sm font-medium text-slate-200">Guardado automático</h3>
         <p class="text-xs text-nl-muted">Frecuencia con la que se guarda el workspace en el navegador (IndexedDB).</p>
         <select data-app-autosave class="w-full bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm text-slate-200">
@@ -170,7 +184,7 @@ export function renderNotesList(book, _app) {
 
 export function renderNoteEditor(note, _app) {
   return `
-    <div class="nl-view space-y-4">
+    <div class="nl-view-editor space-y-4">
       <button type="button" data-back-notes class="text-sm text-indigo-400 hover:text-indigo-300">← Notas</button>
       <input data-note-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white" value="${escapeHtml(note.title)}" />
       ${editorCardWithHost('data-ed-note class="nl-editor min-h-[200px]"')}

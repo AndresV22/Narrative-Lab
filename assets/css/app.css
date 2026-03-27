@@ -35,6 +35,10 @@
     @apply box-border w-full min-w-0 max-w-none mx-0 px-3 sm:px-5 pb-3 pt-5 flex flex-col min-h-0;
     min-height: calc(100vh - 7.5rem);
   }
+  /** Editor de texto: ancho completo del main (sin max-w-3xl), estilo documento continuo. */
+  .nl-view-editor {
+    @apply box-border w-full min-w-0 max-w-none mx-0 px-2 sm:px-4 pt-2 pb-4 sm:pt-3 sm:pb-5;
+  }
   .kanban-col-drop--active {
     @apply bg-indigo-500/15;
   }
@@ -85,6 +89,22 @@ html {
   font-weight: 400;
   margin: 0.5rem 0;
   color: rgb(226 232 240);
+}
+
+/* Menos aire vacío arriba del primer bloque de texto (fluido o dentro de .nl-page) */
+.nl-editor > p:first-child,
+.nl-editor > h2:first-child,
+.nl-editor > h3:first-child,
+.nl-editor > ul:first-child,
+.nl-editor > ol:first-child,
+.nl-editor > blockquote:first-child,
+.nl-editor .nl-page > p:first-child,
+.nl-editor .nl-page > h2:first-child,
+.nl-editor .nl-page > h3:first-child,
+.nl-editor .nl-page > ul:first-child,
+.nl-editor .nl-page > ol:first-child,
+.nl-editor .nl-page > blockquote:first-child {
+  margin-top: 0;
 }
 
 .nl-editor h2 {
@@ -167,13 +187,13 @@ html {
 
 .nl-editor-desk.nl-editor-page-mode {
   background: rgb(15 23 42 / 0.92);
-  padding: 1.25rem 1rem 2.5rem;
+  padding: 0.25rem 1rem 2.5rem;
 }
 
-/* Vista fluida (sin modo página): ancho máximo tipo columna */
+/* Vista fluida (sin modo página): usa todo el ancho disponible del main */
 .nl-editor-sheet.nl-editor-sheet-fluid {
   width: 100%;
-  max-width: min(100%, 48rem);
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -226,6 +246,7 @@ html {
   min-height: 0;
 }
 
+/* Márgenes de la hoja: solo --nl-editor-margin-x/y (prefs, px); 0 = sin margen. Por defecto 50px vía JS/prefs. */
 .nl-editor-sheet.nl-editor-sheet--page .nl-page {
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.45);
   border-radius: 0.375rem;
@@ -234,10 +255,10 @@ html {
   box-sizing: border-box;
   width: 100%;
   overflow: hidden;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-  padding-top: 20mm;
-  padding-bottom: 20mm;
+  padding-left: var(--nl-editor-margin-x, 50px);
+  padding-right: var(--nl-editor-margin-x, 50px);
+  padding-top: var(--nl-editor-margin-y, 50px);
+  padding-bottom: var(--nl-editor-margin-y, 50px);
 }
 
 .nl-editor-sheet.nl-editor-sheet--page.nl-editor-sheet--letter .nl-page {
@@ -315,8 +336,12 @@ span.nl-highlight-mark::before {
   pointer-events: none;
 }
 
-.nl-comments-aside {
-  min-width: 0;
+.nl-editor-fullscreen-root:fullscreen {
+  background: rgb(15 23 42);
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  overflow: auto;
 }
 
 /* Scrollbars (WebKit) */

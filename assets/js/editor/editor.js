@@ -11,17 +11,36 @@ import {
   nextZoomStepUp,
   setBlockLineHeightPreset,
 } from './editor-helpers.js';
+import {
+  EDITOR_FONT_OPTIONS,
+  FONT_SIZE_PRESETS,
+  applyFontFamilyToSelection,
+  applyFontSizePxToSelection,
+  clearSelectionFormattingToDefaults,
+  getFontFamilyValueForToolbar,
+  getFontSizePxForToolbar,
+  getForeColorCssForToolbar,
+} from './editor-font.js';
 import { flattenPageLayout, layoutEditorPages, wrapContentInFirstPage } from './editor-paginate.js';
 import { attachListKeyboard, execInsertList } from './editor-list-behavior.js';
+import {
+  clearToolbarPinnedHighlight,
+  setToolbarPinnedHighlight,
+} from './editor-toolbar-pinned-selection.js';
 import { EDITOR_PAGE_SIZE_PRESETS } from './editor-page-sizes.js';
 import {
+  getEditorMarginHorizontalPx,
+  getEditorMarginVerticalPx,
   getEditorPageMode,
   getEditorPageSize,
   getEditorZoomPercent,
+  setEditorMarginHorizontalPx,
+  setEditorMarginVerticalPx,
   setEditorPageMode,
   setEditorPageSize,
   setEditorZoomPercent,
 } from '../domain/prefs.js';
+import { showToast } from '../ui/toast.js';
 
 /**
  * @typedef {Object} EditorRealtimeMetrics
@@ -35,6 +54,8 @@ import {
 
 const REALTIME_DEBOUNCE_MS = 500;
 const MAX_METRICS_TEXT_CHARS = 10000;
+/** Máximo de estados guardados para Deshacer (cada cambio de HTML cuenta como uno). */
+const MAX_UNDO_HISTORY = 120;
 
 /** Stopwords mínimas (es) para repetición */
 const STOP = new Set([
@@ -143,13 +164,31 @@ export class RichEditor {
         this.options.onRealtimeMetrics(m);
       }
     }, REALTIME_DEBOUNCE_MS);
+    /** @type {string[]} */
+    this._undoStack = [];
+    /** @type {string[]} */
+    this._redoStack = [];
+    this._lastKnownHtml = '';
+    /** Evita registrar un paso extra al aplicar deshacer/rehacer. */
+    this._ignoreHistoryForUndoRedo = false;
   }
 
   mount(initialHtml = '') {
     const inSheet = this.host.closest('[data-nl-sheet]');
     this.host.classList.add('nl-editor', 'font-serif', 'text-lg', 'text-slate-200', 'w-full', 'outline-none', 'min-h-[200px]');
     if (inSheet) {
-      this.host.classList.add('flex-1', 'p-6', 'md:px-10', 'md:py-8', 'border-0', 'rounded-none', 'bg-transparent');
+      this.host.classList.add(
+        'flex-1',
+        'px-6',
+        'pt-3',
+        'pb-6',
+        'md:px-10',
+        'md:pt-4',
+        'md:pb-8',
+        'border-0',
+        'rounded-none',
+        'bg-transparent'
+      );
     } else {
       this.host.classList.add('p-4', 'rounded-md', 'border', 'border-nl-border', 'bg-nl-raised', 'nl-scroll', 'min-h-[200px]');
     }
@@ -162,8 +201,14 @@ export class RichEditor {
       this.host.dataset.placeholder = this.options.placeholder;
     }
     this.host.innerHTML = initialHtml || '';
+    this._undoStack = [];
+    this._redoStack = [];
+    this._lastKnownHtml = this.getHtml();
     this.host.addEventListener('input', () => {
       const html = this.getHtml();
+      if (!this._ignoreHistoryForUndoRedo) {
+        this._recordHtmlHistoryIfChanged(html);
+      }
       this._debounced(html);
       if (this.options.progressMode === 'debounce') {
         this._debouncedProgress();
@@ -191,7 +236,61 @@ export class RichEditor {
     if (this._keyHandler) {
       this.host.removeEventListener('keydown', this._keyHandler, true);
     }
+    this._undoStack = [];
+    this._redoStack = [];
     this.host.contentEditable = 'false';
+  }
+
+  /**
+   * @param {string} html
+   */
+  _recordHtmlHistoryIfChanged(html) {
+    if (html === this._lastKnownHtml) return;
+    this._undoStack.push(this._lastKnownHtml);
+    this._lastKnownHtml = html;
+    this._redoStack = [];
+    while (this._undoStack.length > MAX_UNDO_HISTORY) {
+      this._undoStack.shift();
+    }
+  }
+
+  _collapseSelectionToEnd() {
+    this.host.focus();
+    const sel = window.getSelection();
+    if (!sel) return;
+    try {
+      const r = document.createRange();
+      r.selectNodeContents(this.host);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  _editorUndo() {
+    if (this._undoStack.length === 0) return;
+    const prev = this._undoStack.pop();
+    this._redoStack.push(this.getHtml());
+    this._ignoreHistoryForUndoRedo = true;
+    this.host.innerHTML = prev;
+    this._lastKnownHtml = prev;
+    this._ignoreHistoryForUndoRedo = false;
+    this._collapseSelectionToEnd();
+    this.host.dispatchEvent(new Event('input'));
+  }
+
+  _editorRedo() {
+    if (this._redoStack.length === 0) return;
+    const next = this._redoStack.pop();
+    this._undoStack.push(this.getHtml());
+    this._ignoreHistoryForUndoRedo = true;
+    this.host.innerHTML = next;
+    this._lastKnownHtml = next;
+    this._ignoreHistoryForUndoRedo = false;
+    this._collapseSelectionToEnd();
+    this.host.dispatchEvent(new Event('input'));
   }
 
   /**
@@ -239,6 +338,24 @@ export class RichEditor {
       if (mod && (e.key === '0' || e.code === 'Digit0')) {
         e.preventDefault();
         host.dispatchEvent(new CustomEvent('nl-editor-zoom-reset', { bubbles: true }));
+        return;
+      }
+
+      if (e.isComposing) return;
+
+      if (mod && e.key.toLowerCase() === 'z' && e.shiftKey) {
+        e.preventDefault();
+        this._editorRedo();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        this._editorUndo();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'y' && !e.shiftKey) {
+        e.preventDefault();
+        this._editorRedo();
         return;
       }
 
@@ -335,6 +452,8 @@ const iconIndent = '<i class="fa-solid fa-indent nl-toolbar-icon" aria-hidden="t
 const iconOutdent = '<i class="fa-solid fa-outdent nl-toolbar-icon" aria-hidden="true"></i>';
 const iconPage = '<i class="fa-solid fa-file-lines nl-toolbar-icon" aria-hidden="true"></i>';
 const iconComment = '<i class="fa-solid fa-comment nl-toolbar-icon" aria-hidden="true"></i>';
+const iconMaximize = '<i class="fa-solid fa-maximize nl-toolbar-icon" aria-hidden="true"></i>';
+const iconMinimize = '<i class="fa-solid fa-minimize nl-toolbar-icon" aria-hidden="true"></i>';
 
 /** @param {HTMLElement} toolbarEl @param {RichEditor} editor */
 function syncToolbarToSelection(toolbarEl, editor) {
@@ -345,15 +464,14 @@ function syncToolbarToSelection(toolbarEl, editor) {
   if (!an || !host.contains(an)) return;
 
   try {
-    const fs = toolbarEl.querySelector('[data-font-size]');
-    if (fs && 'value' in fs) {
-      const v = document.queryCommandValue('fontSize');
-      if (v) {
-        const map = ['1', '2', '3', '4', '5', '6', '7'];
-        const idx = ['x-small', 'small', 'medium', 'large', 'x-large', 'xx-large', 'xxx-large'].indexOf(String(v).toLowerCase());
-        if (idx >= 0 && map[idx]) /** @type {HTMLSelectElement} */ (fs).value = map[idx];
-        else if (['1', '2', '3', '4', '5', '6', '7'].includes(String(v))) /** @type {HTMLSelectElement} */ (fs).value = String(v);
-      }
+    const ff = toolbarEl.querySelector('[data-font-family]');
+    if (ff && 'value' in ff) {
+      /** @type {HTMLSelectElement} */ (ff).value = getFontFamilyValueForToolbar(host);
+    }
+    const fspx = toolbarEl.querySelector('[data-font-size-px]');
+    if (fspx && 'value' in fspx) {
+      const px = getFontSizePxForToolbar(host);
+      /** @type {HTMLInputElement} */ (fspx).value = px === null ? '' : String(px);
     }
   } catch {
     /* ignore */
@@ -392,6 +510,15 @@ function syncToolbarToSelection(toolbarEl, editor) {
       btn.setAttribute('aria-pressed', 'false');
     }
   });
+
+  const colorLine = toolbarEl.querySelector('[data-text-color-line]');
+  if (colorLine instanceof HTMLElement) {
+    try {
+      colorLine.style.backgroundColor = getForeColorCssForToolbar(host);
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /**
@@ -420,17 +547,91 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
     /* ignore */
   }
 
+  const card = toolbarEl.closest('.nl-editor-card');
+  /** Selección clonada antes de interactuar con la barra (evita perder el rango al cambiar foco). */
+  let savedToolbarRange = /** @type {Range | null} */ (null);
+
+  const clearSavedToolbarRange = () => {
+    savedToolbarRange = null;
+    clearToolbarPinnedHighlight();
+  };
+
+  const refreshPinnedHighlight = () => {
+    if (savedToolbarRange) {
+      try {
+        setToolbarPinnedHighlight(savedToolbarRange.cloneRange());
+      } catch {
+        clearToolbarPinnedHighlight();
+      }
+    } else {
+      clearToolbarPinnedHighlight();
+    }
+  };
+
+  const restoreSelectionFromSaved = () => {
+    if (!savedToolbarRange) return;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedToolbarRange.cloneRange());
+  };
+
+  const syncSavedRangeAfterCommand = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) {
+      const nr = sel.getRangeAt(0);
+      if (!nr.collapsed && editor.host.contains(nr.commonAncestorContainer)) {
+        savedToolbarRange = nr.cloneRange();
+      }
+    }
+    refreshPinnedHighlight();
+  };
+
   const run = (cmd, value = '') => {
+    restoreSelectionFromSaved();
     editor.focus();
     document.execCommand(cmd, false, value);
     editor.host.dispatchEvent(new Event('input'));
+    syncSavedRangeAfterCommand();
   };
 
-  const card = toolbarEl.closest('.nl-editor-card');
+  /** Mousedown en la barra: guardar rango no colapsado dentro del editor; evitar que el foco salga del contenteditable salvo en inputs/select. */
+  const onToolbarMouseDownCapture = (e) => {
+    const t = /** @type {HTMLElement | null} */ (e.target instanceof HTMLElement ? e.target : null);
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) {
+      const r = sel.getRangeAt(0);
+      if (!r.collapsed && editor.host.contains(r.commonAncestorContainer)) {
+        savedToolbarRange = r.cloneRange();
+      }
+    }
+    refreshPinnedHighlight();
+    if (!t) return;
+    if (t.closest('input, select, textarea, option, label')) return;
+    e.preventDefault();
+  };
+
+  toolbarEl.addEventListener('mousedown', onToolbarMouseDownCapture, true);
+  editor.host.addEventListener('mousedown', clearSavedToolbarRange, true);
+
   const desk = card?.querySelector('[data-nl-editor-desk]');
   const zoomWrap = card?.querySelector('[data-nl-zoom-wrap]');
   const sheet = card?.querySelector('[data-nl-sheet]');
   const zoomLabel = card?.querySelector('[data-nl-zoom-label]');
+
+  /** Márgenes extra dentro de la hoja (modo página): variables en el host, ver .nl-page en app.css */
+  const applyEditorMargins = () => {
+    const mx = getEditorMarginHorizontalPx();
+    const my = getEditorMarginVerticalPx();
+    editor.host.style.setProperty('--nl-editor-margin-x', `${mx}px`);
+    editor.host.style.setProperty('--nl-editor-margin-y', `${my}px`);
+    if (sheet) {
+      sheet.style.removeProperty('padding-left');
+      sheet.style.removeProperty('padding-right');
+      sheet.style.removeProperty('padding-top');
+      sheet.style.removeProperty('padding-bottom');
+    }
+  };
+  applyEditorMargins();
 
   const applyPageSizeToSheet = () => {
     if (!sheet) return;
@@ -505,6 +706,7 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
         }
       }
       syncPageToggle();
+      applyEditorMargins();
     });
   }
 
@@ -518,6 +720,29 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   toolbarEl.querySelector('[data-zoom-out]')?.addEventListener('click', () => onZoomOut());
   toolbarEl.querySelector('[data-zoom-in]')?.addEventListener('click', () => onZoomIn());
 
+  const mxIn = toolbarEl.querySelector('[data-editor-margin-x]');
+  const myIn = toolbarEl.querySelector('[data-editor-margin-y]');
+  if (mxIn && 'value' in mxIn) {
+    /** @type {HTMLInputElement} */ (mxIn).value = String(getEditorMarginHorizontalPx());
+    mxIn.addEventListener('change', () => {
+      const n = parseInt(/** @type {HTMLInputElement} */ (mxIn).value, 10);
+      if (Number.isFinite(n)) {
+        setEditorMarginHorizontalPx(n);
+        applyEditorMargins();
+      }
+    });
+  }
+  if (myIn && 'value' in myIn) {
+    /** @type {HTMLInputElement} */ (myIn).value = String(getEditorMarginVerticalPx());
+    myIn.addEventListener('change', () => {
+      const n = parseInt(/** @type {HTMLInputElement} */ (myIn).value, 10);
+      if (Number.isFinite(n)) {
+        setEditorMarginVerticalPx(n);
+        applyEditorMargins();
+      }
+    });
+  }
+
   editor.host.addEventListener('nl-editor-zoom-in', onZoomIn);
   editor.host.addEventListener('nl-editor-zoom-out', onZoomOut);
   editor.host.addEventListener('nl-editor-zoom-reset', onZoomReset);
@@ -526,15 +751,10 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
     btn.addEventListener('click', () => {
       const cmd = btn.getAttribute('data-cmd');
       const val = btn.getAttribute('data-value') || '';
-      if (cmd === 'fontSize') {
-        const size = toolbarEl.querySelector('[data-font-size]');
-        const v = size && 'value' in size ? String(/** @type {HTMLSelectElement} */(size).value) : '3';
-        run('fontSize', v);
-        return;
-      }
       if (cmd === 'formatBlock') {
         const sel = toolbarEl.querySelector('[data-block-style]');
         const v = sel && 'value' in sel ? String(/** @type {HTMLSelectElement} */(sel).value) : 'p';
+        restoreSelectionFromSaved();
         editor.focus();
         const tag = v === 'blockquote' ? 'blockquote' : v;
         const arg = tag === 'p' ? '<p>' : `<${tag}>`;
@@ -544,6 +764,7 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
           document.execCommand('formatBlock', false, tag);
         }
         editor.host.dispatchEvent(new Event('input'));
+        syncSavedRangeAfterCommand();
         return;
       }
       if (cmd === 'foreColor' && val) {
@@ -551,23 +772,118 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
         return;
       }
       if (cmd === 'insertUnorderedList' || cmd === 'insertOrderedList') {
+        restoreSelectionFromSaved();
         execInsertList(editor.host, cmd);
+        syncSavedRangeAfterCommand();
         return;
       }
       if (cmd) run(cmd, val);
     });
   });
 
-  const fs = toolbarEl.querySelector('[data-font-size]');
-  if (fs) {
-    fs.addEventListener('change', () => {
+  /** @type {(() => void)[]} */
+  const toolbarExtraCleanups = [];
+  const colorToggle = toolbarEl.querySelector('[data-text-color-toggle]');
+  const colorPop = toolbarEl.querySelector('[data-text-color-popover]');
+  const colorWrap = toolbarEl.querySelector('[data-text-color-wrap]');
+  if (colorToggle && colorPop && colorWrap) {
+    const positionColorPopover = () => {
+      const r = colorToggle.getBoundingClientRect();
+      const w = colorPop.offsetWidth || 184;
+      let left = r.left;
+      if (left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - w - 8);
+      colorPop.style.left = `${left}px`;
+      colorPop.style.top = `${r.bottom + 4}px`;
+    };
+    const closeColorPopover = () => {
+      colorPop.classList.add('hidden');
+      colorToggle.setAttribute('aria-expanded', 'false');
+    };
+    const openColorPopover = () => {
+      colorPop.classList.remove('hidden');
+      colorToggle.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => positionColorPopover());
+    };
+    colorToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (colorPop.classList.contains('hidden')) openColorPopover();
+      else closeColorPopover();
+    });
+    const onDocClickCloseColor = (e) => {
+      const t = e.target;
+      if (!(t instanceof Node)) return;
+      if (colorWrap.contains(t)) return;
+      closeColorPopover();
+    };
+    const onEscCloseColor = (e) => {
+      if (e.key === 'Escape') closeColorPopover();
+    };
+    const onScrollOrResizeColor = () => {
+      if (!colorPop.classList.contains('hidden')) positionColorPopover();
+    };
+    document.addEventListener('click', onDocClickCloseColor, true);
+    document.addEventListener('keydown', onEscCloseColor, true);
+    window.addEventListener('scroll', onScrollOrResizeColor, true);
+    window.addEventListener('resize', onScrollOrResizeColor);
+    colorPop.querySelectorAll('[data-cmd="foreColor"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        queueMicrotask(() => closeColorPopover());
+      });
+    });
+    toolbarExtraCleanups.push(() => document.removeEventListener('click', onDocClickCloseColor, true));
+    toolbarExtraCleanups.push(() => document.removeEventListener('keydown', onEscCloseColor, true));
+    toolbarExtraCleanups.push(() => window.removeEventListener('scroll', onScrollOrResizeColor, true));
+    toolbarExtraCleanups.push(() => window.removeEventListener('resize', onScrollOrResizeColor));
+  }
+
+  const ff = toolbarEl.querySelector('[data-font-family]');
+  if (ff) {
+    ff.addEventListener('change', () => {
+      const r = savedToolbarRange ? savedToolbarRange.cloneRange() : undefined;
       editor.focus();
-      run('fontSize', /** @type {HTMLSelectElement} */(fs).value);
+      const v = /** @type {HTMLSelectElement} */ (ff).value;
+      applyFontFamilyToSelection(v, r);
+      editor.host.dispatchEvent(new Event('input'));
+      syncSavedRangeAfterCommand();
+    });
+  }
+  const fspx = toolbarEl.querySelector('[data-font-size-px]');
+  if (fspx) {
+    let lastApplyTs = 0;
+    const applyPx = () => {
+      const raw = /** @type {HTMLInputElement} */ (fspx).value;
+      const n = parseInt(raw, 10);
+      if (!Number.isFinite(n)) return;
+      const now = Date.now();
+      if (now - lastApplyTs < 40) return;
+      lastApplyTs = now;
+      const r = savedToolbarRange ? savedToolbarRange.cloneRange() : null;
+      editor.focus();
+      applyFontSizePxToSelection(n, r || undefined);
+      editor.host.dispatchEvent(new Event('input'));
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const nr = sel.getRangeAt(0);
+        if (!nr.collapsed && editor.host.contains(nr.commonAncestorContainer)) {
+          savedToolbarRange = nr.cloneRange();
+        }
+      }
+      refreshPinnedHighlight();
+    };
+    fspx.addEventListener('change', applyPx);
+    fspx.addEventListener('blur', applyPx);
+    fspx.addEventListener('keydown', (e) => {
+      if (/** @type {KeyboardEvent} */ (e).key === 'Enter') {
+        e.preventDefault();
+        applyPx();
+      }
     });
   }
   const bs = toolbarEl.querySelector('[data-block-style]');
   if (bs) {
     bs.addEventListener('change', () => {
+      restoreSelectionFromSaved();
       editor.focus();
       const v = /** @type {HTMLSelectElement} */(bs).value;
       const tag = v === 'blockquote' ? 'blockquote' : v;
@@ -578,18 +894,34 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
         document.execCommand('formatBlock', false, tag);
       }
       editor.host.dispatchEvent(new Event('input'));
+      syncSavedRangeAfterCommand();
     });
   }
 
   const lh = toolbarEl.querySelector('[data-line-height]');
   if (lh) {
     lh.addEventListener('change', () => {
+      restoreSelectionFromSaved();
       editor.focus();
       const v = /** @type {HTMLSelectElement} */(lh).value;
       const block = getCurrentBlock(editor.host);
       if (block) {
         setBlockLineHeightPreset(block, /** @type {'compact'|'comfort'|'relaxed'|''} */ (v));
         editor.host.dispatchEvent(new Event('input'));
+      }
+      syncSavedRangeAfterCommand();
+    });
+  }
+
+  const clearFmtBtn = toolbarEl.querySelector('[data-clear-format]');
+  if (clearFmtBtn) {
+    clearFmtBtn.addEventListener('click', () => {
+      restoreSelectionFromSaved();
+      editor.focus();
+      const r = savedToolbarRange ? savedToolbarRange.cloneRange() : null;
+      if (clearSelectionFormattingToDefaults(editor.host, r || undefined)) {
+        editor.host.dispatchEvent(new Event('input'));
+        syncSavedRangeAfterCommand();
       }
     });
   }
@@ -598,7 +930,10 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   if (hl && hooks.onHighlight) {
     hl.addEventListener('click', (e) => {
       e.preventDefault();
+      restoreSelectionFromSaved();
+      editor.focus();
       hooks.onHighlight();
+      syncSavedRangeAfterCommand();
     });
   }
 
@@ -606,7 +941,10 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   if (newCommentBtn && hooks.onNewComment) {
     newCommentBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      restoreSelectionFromSaved();
+      editor.focus();
       hooks.onNewComment();
+      syncSavedRangeAfterCommand();
     });
   }
 
@@ -625,8 +963,44 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   editor.host.addEventListener('mouseup', onSel);
   editor.host.addEventListener('keyup', onSel);
 
+  const fsRoot =
+    /** @type {HTMLElement | null} */ (card?.closest('[data-nl-editor-fullscreen-root]')) ||
+    /** @type {HTMLElement | null} */ (card);
+  const fsBtn = toolbarEl.querySelector('[data-editor-fullscreen]');
+  const fsExit = toolbarEl.querySelector('[data-editor-fullscreen-exit]');
+  const onFullscreenChange = () => {
+    const active = fsRoot && document.fullscreenElement === fsRoot;
+    fsExit?.classList.toggle('hidden', !active);
+    fsBtn?.classList.toggle('hidden', !!active);
+    if (active) {
+      showToast('Presiona ESC para salir del modo pantalla completa', 'success');
+    }
+  };
+  if (fsBtn && fsRoot) {
+    fsBtn.addEventListener('click', async () => {
+      if (!document.fullscreenEnabled) {
+        showToast('Tu navegador no permite pantalla completa aquí.', 'warning');
+        return;
+      }
+      try {
+        await fsRoot.requestFullscreen();
+      } catch {
+        showToast('No se pudo entrar en pantalla completa.', 'error');
+      }
+    });
+  }
+  if (fsExit) {
+    fsExit.addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+    });
+  }
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  queueMicrotask(() => onFullscreenChange());
+
   const cleanup = () => {
     debouncedPageLayout.cancel();
+    toolbarEl.removeEventListener('mousedown', onToolbarMouseDownCapture, true);
+    editor.host.removeEventListener('mousedown', clearSavedToolbarRange, true);
     editor.host.removeEventListener('input', debouncedPageLayout);
     document.removeEventListener('selectionchange', onSel);
     editor.host.removeEventListener('mouseup', onSel);
@@ -634,26 +1008,13 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
     editor.host.removeEventListener('nl-editor-zoom-in', onZoomIn);
     editor.host.removeEventListener('nl-editor-zoom-out', onZoomOut);
     editor.host.removeEventListener('nl-editor-zoom-reset', onZoomReset);
+    document.removeEventListener('fullscreenchange', onFullscreenChange);
+    for (const fn of toolbarExtraCleanups) fn();
+    clearToolbarPinnedHighlight();
   };
 
   queueMicrotask(onSel);
   return cleanup;
-}
-
-/**
- * Panel lateral de comentarios (HTML vacío, se rellena desde App).
- * @returns {string}
- */
-export function editorCommentsAsideHtml() {
-  return `
-    <aside data-nl-comments-aside class="nl-comments-aside hidden flex-col w-full lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-nl-border bg-nl-bg/95 max-h-[min(40vh,320px)] lg:max-h-none">
-      <div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-nl-border">
-        <span class="text-xs font-medium text-slate-300">Comentarios</span>
-        <button type="button" data-nl-comments-close class="lg:hidden text-xs text-nl-muted hover:text-slate-300 px-2 py-1 rounded">Cerrar</button>
-      </div>
-      <ul data-nl-comments-list class="flex-1 overflow-y-auto nl-scroll p-2 space-y-2 min-h-0 text-sm"></ul>
-    </aside>
-  `;
 }
 
 /**
@@ -663,9 +1024,9 @@ export function editorCommentsAsideHtml() {
  */
 export function editorFrameHtml(hostAttrs) {
   return `
-    <div class="nl-editor-frame flex flex-col flex-1 min-h-0 overflow-hidden rounded-b-lg">
+    <div class="nl-editor-frame flex flex-col flex-1 min-h-0 overflow-hidden">
       <div class="nl-editor-desk flex-1 min-h-0 overflow-y-auto overflow-x-auto nl-scroll" data-nl-editor-desk>
-        <div class="nl-editor-zoom-wrap flex justify-center py-2 px-2 transition-transform duration-150 ease-out origin-top will-change-transform" data-nl-zoom-wrap style="transform: scale(1)">
+        <div class="nl-editor-zoom-wrap flex justify-center w-full pt-0 pb-2 px-1 sm:px-2 transition-transform duration-150 ease-out origin-top will-change-transform" data-nl-zoom-wrap style="transform: scale(1)">
           <div class="nl-editor-sheet nl-editor-sheet-fluid mx-auto transition-[box-shadow] duration-200" data-nl-sheet>
             <div ${hostAttrs}></div>
           </div>
@@ -676,19 +1037,18 @@ export function editorFrameHtml(hostAttrs) {
 }
 
 /**
- * Tarjeta completa: toolbar + marco + panel comentarios.
+ * Tarjeta completa: toolbar + marco del editor.
  * @param {string} hostAttrs
  * @returns {string}
  */
 export function editorCardWithHost(hostAttrs) {
   return `
-    <div class="nl-editor-card rounded-xl border border-nl-border overflow-hidden bg-nl-surface flex flex-col flex-1 min-h-0">
-      ${toolbarHtml()}
-      <div class="flex flex-1 min-h-0 flex-col lg:flex-row min-w-0">
-        <div class="flex flex-col flex-1 min-h-0 min-w-0">
+    <div class="nl-editor-fullscreen-root flex flex-col flex-1 min-h-0 min-w-0" data-nl-editor-fullscreen-root>
+      <div class="nl-editor-card rounded-t-xl border-x border-t border-nl-border border-b-0 overflow-hidden bg-nl-surface flex flex-col flex-1 min-h-0 shadow-none">
+        ${toolbarHtml()}
+        <div class="flex flex-1 min-h-0 flex-col min-w-0">
           ${editorFrameHtml(hostAttrs)}
         </div>
-        ${editorCommentsAsideHtml()}
       </div>
     </div>
   `;
@@ -702,8 +1062,13 @@ export function toolbarHtml() {
   const pageSizeOptions = EDITOR_PAGE_SIZE_PRESETS.map(
     (p) => `<option value="${p.id}">${p.label}</option>`
   ).join('');
+  const fontFamilyOptions = EDITOR_FONT_OPTIONS.map((f) => {
+    const v = f.value.replace(/"/g, '&quot;');
+    return `<option value="${v}">${f.label}</option>`;
+  }).join('');
+  const sizeDatalist = FONT_SIZE_PRESETS.map((n) => `<option value="${n}"></option>`).join('');
   const sep = '<span class="nl-toolbar-sep w-px h-6 bg-nl-border shrink-0" aria-hidden="true"></span>';
-  const palette = [
+  const paletteRows = [
     { v: '#e2e8f0', t: 'Gris claro' },
     { v: '#94a3b8', t: 'Gris' },
     { v: '#64748b', t: 'Gris oscuro' },
@@ -715,24 +1080,31 @@ export function toolbarHtml() {
   ]
     .map(
       (p) =>
-        `<button type="button" data-cmd="foreColor" data-value="${p.v}" class="nl-color-swatch w-6 h-6 rounded border border-nl-border shrink-0" style="background:${p.v}" title="Color: ${p.t}" aria-label="Color ${p.t}"></button>`
+        `<button type="button" data-cmd="foreColor" data-value="${p.v}" class="nl-color-swatch w-7 h-7 rounded border border-nl-border shrink-0" style="background:${p.v}" title="Color: ${p.t}" aria-label="Color ${p.t}" role="menuitem"></button>`
     )
     .join('');
 
   return `
-    <div data-nl-toolbar class="nl-toolbar flex flex-wrap items-center gap-1.5 p-2 border-b border-nl-border bg-nl-surface rounded-t-lg">
+    <div data-nl-toolbar class="nl-toolbar flex flex-wrap items-center gap-1.5 p-2 border-b border-nl-border bg-nl-surface rounded-t-xl">
       <span class="nl-toolbar-label text-[10px] uppercase tracking-wide text-nl-muted hidden sm:inline">Texto</span>
+      <label class="sr-only" for="nl-font-family">Fuente</label>
+      <select data-font-family id="nl-font-family" class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-xs text-slate-200 max-w-[9.5rem] shrink-0" title="Fuente">${fontFamilyOptions}</select>
+      <label class="sr-only" for="nl-font-size-px">Tamaño (px)</label>
+      <input type="number" data-font-size-px id="nl-font-size-px" min="8" max="96" step="1" value="17" list="nl-font-size-datalist" inputmode="numeric" class="w-[4.25rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1.5 py-1 text-xs text-slate-200 tabular-nums" title="Tamaño en píxeles (lista o número manual)" />
+      <datalist id="nl-font-size-datalist">${sizeDatalist}</datalist>
       <button type="button" data-cmd="bold" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Negrita (Ctrl/Cmd+B)" aria-label="Negrita">${iconBold}</button>
       <button type="button" data-cmd="italic" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Cursiva (Ctrl/Cmd+I)" aria-label="Cursiva">${iconItalic}</button>
       <button type="button" data-cmd="underline" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Subrayado (Ctrl/Cmd+U)" aria-label="Subrayado">${iconUnderline}</button>
-      <label class="sr-only" for="nl-font-size">Tamaño</label>
-      <select data-font-size id="nl-font-size" class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-xs text-slate-200 max-w-[7rem]">
-        <option value="1">Pequeño</option>
-        <option value="3" selected>Normal</option>
-        <option value="5">Grande</option>
-        <option value="7">Muy grande</option>
-      </select>
-      <div class="flex flex-wrap items-center gap-0.5 max-w-[200px]" title="Color de texto">${palette}</div>
+      <div class="relative shrink-0" data-text-color-wrap>
+        <button type="button" data-text-color-toggle class="nl-tool-btn flex flex-col items-center justify-center px-1.5 py-0.5 rounded text-slate-200 hover:bg-nl-raised min-w-[2rem]" title="Color de texto" aria-label="Color de texto" aria-haspopup="menu" aria-expanded="false" id="nl-text-color-toggle">
+          <span class="text-base font-semibold leading-none font-serif" aria-hidden="true">A</span>
+          <span data-text-color-line class="block h-[3px] w-5 rounded-sm mt-0.5" style="background-color:#e2e8f0"></span>
+        </button>
+        <div data-text-color-popover class="hidden fixed z-[100] p-2 rounded-lg border border-nl-border bg-nl-surface shadow-xl flex flex-wrap gap-1.5 w-[11.5rem]" role="menu" aria-labelledby="nl-text-color-popover-label">
+          <span id="nl-text-color-popover-label" class="sr-only">Elegir color de texto</span>
+          ${paletteRows}
+        </div>
+      </div>
       ${sep}
       <span class="nl-toolbar-label text-[10px] uppercase tracking-wide text-nl-muted hidden md:inline">Estructura</span>
       <label class="sr-only" for="nl-block">Estilo de párrafo</label>
@@ -758,6 +1130,7 @@ export function toolbarHtml() {
       <button type="button" data-cmd="justifyCenter" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Centrar" aria-label="Centrar">${iconAlignCenter}</button>
       <button type="button" data-cmd="justifyRight" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Alinear a la derecha" aria-label="Alinear a la derecha">${iconAlignRight}</button>
       <button type="button" data-cmd="justifyFull" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Justificar" aria-label="Justificar">${iconAlignJustify}</button>
+      <button type="button" data-clear-format class="nl-tool-btn px-2 py-1 rounded text-xs text-slate-200 hover:bg-nl-raised shrink-0" title="Quitar formato: fuente, tamaño, color, interlineado y alineación por defecto" aria-label="Borrar formato">Borrar formato</button>
       <button type="button" data-cmd="indent" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Aumentar sangría" aria-label="Aumentar sangría">${iconIndent}</button>
       <button type="button" data-cmd="outdent" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Reducir sangría" aria-label="Reducir sangría">${iconOutdent}</button>
       ${sep}
@@ -769,13 +1142,26 @@ export function toolbarHtml() {
       <button type="button" data-page-mode-toggle class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Modo página (hoja de documento)" aria-label="Modo página">${iconPage}</button>
       <label class="sr-only" for="nl-page-size-sel">Tamaño de página</label>
       <select data-page-size id="nl-page-size-sel" class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-xs text-slate-200 max-w-[10rem]" title="Tamaño de hoja (Carta, A4, Legal, A5)">${pageSizeOptions}</select>
-      <div class="flex items-center gap-0.5 ml-auto sm:ml-0 border border-nl-border rounded-md bg-nl-raised/80 px-1 py-0.5" title="Zoom solo visual (Ctrl/Cmd +/−/0)">
-        <button type="button" data-zoom-out class="nl-tool-btn w-7 h-7 rounded text-slate-300 hover:bg-nl-bg text-lg leading-none" aria-label="Alejar">−</button>
-        <span data-nl-zoom-label class="text-xs text-slate-400 tabular-nums min-w-[2.75rem] text-center">100%</span>
-        <button type="button" data-zoom-in class="nl-tool-btn w-7 h-7 rounded text-slate-300 hover:bg-nl-bg text-lg leading-none" aria-label="Acercar">+</button>
+      <div class="flex flex-wrap items-center gap-x-1 gap-y-0.5 border border-nl-border/70 rounded-md bg-nl-raised/50 px-1.5 py-1 max-w-full" title="Márgenes interiores de la hoja (dentro del rectángulo blanco). Solo tienen efecto en modo página.">
+        <span class="text-[10px] text-nl-muted uppercase tracking-wide hidden sm:inline shrink-0">Márgenes hoja</span>
+        <span class="text-[10px] text-slate-400 shrink-0" aria-hidden="true">↔</span>
+        <label class="sr-only" for="nl-editor-margin-x">Margen interior izquierdo y derecho en la página (píxeles)</label>
+        <input type="number" data-editor-margin-x id="nl-editor-margin-x" min="0" max="120" step="1" value="50" inputmode="numeric" class="w-[3.25rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1 py-1 text-xs text-slate-200 tabular-nums" title="Izquierda y derecha: espacio extra dentro del borde de la hoja (px). Solo modo página." />
+        <span class="text-[10px] text-slate-400 shrink-0" aria-hidden="true">↕</span>
+        <label class="sr-only" for="nl-editor-margin-y">Margen interior arriba y abajo en la página (píxeles)</label>
+        <input type="number" data-editor-margin-y id="nl-editor-margin-y" min="0" max="120" step="1" value="50" inputmode="numeric" class="w-[3.25rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1 py-1 text-xs text-slate-200 tabular-nums" title="Arriba y abajo: espacio extra dentro del borde de la hoja (px). Solo modo página." />
       </div>
-      ${sep}
-      <button type="button" data-highlight-btn class="px-2 py-1.5 rounded text-xs border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 shrink-0" title="Añadir a frases destacadas">Destacar</button>
+      <div class="flex flex-wrap items-center gap-1.5 ml-auto">
+        <div class="flex items-center gap-0.5 border border-nl-border rounded-md bg-nl-raised/80 px-1 py-0.5" title="Zoom solo visual (Ctrl/Cmd +/−/0)">
+          <button type="button" data-zoom-out class="nl-tool-btn w-7 h-7 rounded text-slate-300 hover:bg-nl-bg text-lg leading-none" aria-label="Alejar">−</button>
+          <span data-nl-zoom-label class="text-xs text-slate-400 tabular-nums min-w-[2.75rem] text-center">100%</span>
+          <button type="button" data-zoom-in class="nl-tool-btn w-7 h-7 rounded text-slate-300 hover:bg-nl-bg text-lg leading-none" aria-label="Acercar">+</button>
+        </div>
+        ${sep}
+        <button type="button" data-highlight-btn class="px-2 py-1.5 rounded text-xs border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 shrink-0" title="Añadir a frases destacadas">Destacar</button>
+        <button type="button" data-editor-fullscreen class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised border border-nl-border shrink-0" title="Pantalla completa del editor" aria-label="Pantalla completa del editor">${iconMaximize}</button>
+        <button type="button" data-editor-fullscreen-exit class="hidden nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised border border-nl-border shrink-0" title="Salir de pantalla completa" aria-label="Salir de pantalla completa">${iconMinimize}</button>
+      </div>
     </div>
   `;
 }

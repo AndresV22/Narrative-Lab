@@ -310,3 +310,98 @@ export function renderImageLightbox(app, src, title = '') {
   });
   host.querySelector('[data-img-close]')?.addEventListener('click', close);
 }
+
+/**
+ * Modal de texto multilínea (nuevo comentario o editar).
+ * @param {import('./app.js').App} app
+ * @param {{ title: string, initialValue?: string, hint?: string, okLabel?: string }} opts
+ * @returns {Promise<string|null>}
+ */
+export function showEditorCommentBodyModal(app, opts) {
+  const { title, initialValue = '', hint = '', okLabel = 'Guardar' } = opts;
+  return new Promise((resolve) => {
+    const host = app.els.modalHost;
+    host.innerHTML = `
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-ec-backdrop>
+        <div class="w-full max-w-lg rounded-xl border border-nl-border bg-nl-surface shadow-xl p-4" data-ec-panel role="dialog" aria-modal="true" aria-labelledby="nl-ec-title">
+          <h2 id="nl-ec-title" class="text-sm font-semibold text-white mb-2">${escapeHtml(title)}</h2>
+          ${hint ? `<p class="text-xs text-nl-muted mb-2">${escapeHtml(hint)}</p>` : ''}
+          <textarea data-ec-ta class="w-full min-h-[120px] bg-nl-raised border border-nl-border rounded-lg px-3 py-2 text-sm text-slate-200 mb-3 nl-scroll" placeholder="Escribe el comentario…"></textarea>
+          <div class="flex justify-end gap-2">
+            <button type="button" data-ec-cancel class="px-3 py-1.5 rounded-lg border border-nl-border text-sm text-slate-300 hover:bg-nl-raised">Cancelar</button>
+            <button type="button" data-ec-ok class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white">${escapeHtml(okLabel)}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const backdrop = /** @type {HTMLElement} */ (host.querySelector('[data-ec-backdrop]'));
+    const ta = /** @type {HTMLTextAreaElement} */ (host.querySelector('[data-ec-ta]'));
+    if (ta) ta.value = initialValue;
+    function finish(val) {
+      removeDismiss();
+      host.innerHTML = '';
+      resolve(val);
+    }
+    const removeDismiss = attachModalDismiss(backdrop, () => finish(null));
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) finish(null);
+    });
+    host.querySelector('[data-ec-panel]')?.addEventListener('click', (e) => e.stopPropagation());
+    host.querySelector('[data-ec-cancel]')?.addEventListener('click', () => finish(null));
+    host.querySelector('[data-ec-ok]')?.addEventListener('click', () => {
+      finish(ta.value.trim() || null);
+    });
+    queueMicrotask(() => {
+      ta?.focus();
+      const len = ta?.value.length ?? 0;
+      ta?.setSelectionRange(len, len);
+    });
+  });
+}
+
+/**
+ * Confirmación genérica (sustituye a confirm()).
+ * @param {import('./app.js').App} app
+ * @param {{ title: string, message: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean }} opts
+ * @returns {Promise<boolean>}
+ */
+export function showConfirmModal(app, opts) {
+  const {
+    title,
+    message,
+    confirmLabel = 'Confirmar',
+    cancelLabel = 'Cancelar',
+    danger = false,
+  } = opts;
+  return new Promise((resolve) => {
+    const host = app.els.modalHost;
+    const okClass = danger
+      ? 'px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-sm text-white'
+      : 'px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white';
+    host.innerHTML = `
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-cf-backdrop>
+        <div class="w-full max-w-md rounded-xl border border-nl-border bg-nl-surface shadow-xl p-4" data-cf-panel role="dialog" aria-modal="true">
+          <h2 class="text-sm font-semibold text-white mb-2">${escapeHtml(title)}</h2>
+          <p class="text-sm text-slate-300 mb-4 whitespace-pre-wrap">${escapeHtml(message)}</p>
+          <div class="flex justify-end gap-2">
+            <button type="button" data-cf-cancel class="px-3 py-1.5 rounded-lg border border-nl-border text-sm text-slate-300 hover:bg-nl-raised">${escapeHtml(cancelLabel)}</button>
+            <button type="button" data-cf-ok class="${okClass}">${escapeHtml(confirmLabel)}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const backdrop = /** @type {HTMLElement} */ (host.querySelector('[data-cf-backdrop]'));
+    function finish(ok) {
+      removeDismiss();
+      host.innerHTML = '';
+      resolve(ok);
+    }
+    const removeDismiss = attachModalDismiss(backdrop, () => finish(false));
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) finish(false);
+    });
+    host.querySelector('[data-cf-panel]')?.addEventListener('click', (e) => e.stopPropagation());
+    host.querySelector('[data-cf-cancel]')?.addEventListener('click', () => finish(false));
+    host.querySelector('[data-cf-ok]')?.addEventListener('click', () => finish(true));
+  });
+}

@@ -38,7 +38,7 @@ export function renderChaptersList(book, _app) {
 export function renderChapterEditor(ch) {
   const scenes = sortByOrder(ch.scenes, 'order');
   return `
-    <div class="nl-view flex flex-col gap-4">
+    <div class="nl-view-editor flex flex-col gap-4">
       <div class="flex items-start gap-3">
         <button type="button" data-back-ch class="text-sm text-indigo-400 hover:text-indigo-300 shrink-0">← Capítulos</button>
       </div>
@@ -73,7 +73,7 @@ export function renderChapterEditor(ch) {
  */
 export function renderSceneEditor(ch, sc) {
   return `
-    <div class="nl-view flex flex-col gap-4">
+    <div class="nl-view-editor flex flex-col gap-4">
       <button type="button" data-back-sc class="text-sm text-indigo-400 w-fit">← ${escapeHtml(ch.title)}</button>
       <input data-sc-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white focus:outline-none focus:border-indigo-500 pb-2" value="${escapeHtml(sc.title)}" />
       ${editorCardWithHost('data-ed-scene class="nl-editor min-h-[280px]"')}

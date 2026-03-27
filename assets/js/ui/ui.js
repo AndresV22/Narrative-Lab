@@ -16,4 +16,6 @@ export {
   renderTemplateModal,
   renderImportModal,
   renderClearWorkspaceModal,
+  showEditorCommentBodyModal,
+  showConfirmModal,
 } from './ui-modals.js';

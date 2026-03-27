@@ -13,7 +13,14 @@ const KEY_EDITOR_ZOOM = 'nl_editor_zoom_pct';
 const KEY_EDITOR_PAGE_MODE = 'nl_editor_page_mode';
 const KEY_EDITOR_PAGE_SIZE = 'nl_editor_page_size';
 const KEY_EDITOR_COMMENTS_OPEN = 'nl_editor_comments_panel_open';
+const KEY_EDITOR_MARGIN_X = 'nl_editor_margin_x_px';
+const KEY_EDITOR_MARGIN_Y = 'nl_editor_margin_y_px';
+
+/** Valor por defecto (px) si el usuario no ha guardado márgenes. */
+const EDITOR_MARGIN_DEFAULT_PX = 50;
 const KEY_SIDEBAR_COLLAPSED = 'nl_sidebar_collapsed';
+/** Panel derecho (progreso) visible al cargar la app si el valor es "1". Por defecto minimizado. */
+const KEY_RIGHT_PANEL_DEFAULT_OPEN = 'nl_right_panel_default_open';
 
 /** @typedef {'boundary'|'debounce'} ProgressMode */
 
@@ -174,6 +181,34 @@ export function setEditorCommentsPanelOpen(open) {
   localStorage.setItem(KEY_EDITOR_COMMENTS_OPEN, open ? '1' : '0');
 }
 
+/** Margen izquierdo/derecho dentro de la hoja en modo página (px), 0–120. Sin clave guardada: 50. */
+export function getEditorMarginHorizontalPx() {
+  const v = localStorage.getItem(KEY_EDITOR_MARGIN_X);
+  if (v === null || v === '') return EDITOR_MARGIN_DEFAULT_PX;
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) return EDITOR_MARGIN_DEFAULT_PX;
+  return Math.min(120, Math.max(0, n));
+}
+
+/** @param {number} px */
+export function setEditorMarginHorizontalPx(px) {
+  localStorage.setItem(KEY_EDITOR_MARGIN_X, String(Math.min(120, Math.max(0, Math.round(Number(px)) || 0))));
+}
+
+/** Margen arriba/abajo dentro de la hoja en modo página (px), 0–120. Sin clave guardada: 50. */
+export function getEditorMarginVerticalPx() {
+  const v = localStorage.getItem(KEY_EDITOR_MARGIN_Y);
+  if (v === null || v === '') return EDITOR_MARGIN_DEFAULT_PX;
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) return EDITOR_MARGIN_DEFAULT_PX;
+  return Math.min(120, Math.max(0, n));
+}
+
+/** @param {number} px */
+export function setEditorMarginVerticalPx(px) {
+  localStorage.setItem(KEY_EDITOR_MARGIN_Y, String(Math.min(120, Math.max(0, Math.round(Number(px)) || 0))));
+}
+
 /**
  * Barra lateral izquierda contraída (solo íconos + títulos de sección).
  * @returns {boolean}
@@ -185,6 +220,22 @@ export function getSidebarCollapsed() {
 /** @param {boolean} collapsed */
 export function setSidebarCollapsed(collapsed) {
   localStorage.setItem(KEY_SIDEBAR_COLLAPSED, collapsed ? '1' : '0');
+}
+
+/**
+ * Si es true, el panel derecho (progreso / estadísticas) se muestra al abrir la app o un libro.
+ * El usuario puede seguir ocultándolo con el botón del encabezado.
+ * @returns {boolean}
+ */
+export function getRightPanelDefaultExpanded() {
+  return localStorage.getItem(KEY_RIGHT_PANEL_DEFAULT_OPEN) === '1';
+}
+
+/**
+ * @param {boolean} expanded
+ */
+export function setRightPanelDefaultExpanded(expanded) {
+  localStorage.setItem(KEY_RIGHT_PANEL_DEFAULT_OPEN, expanded ? '1' : '0');
 }
 
 /**
@@ -202,7 +253,10 @@ export function clearAllAppLocalPreferences() {
     KEY_EDITOR_PAGE_MODE,
     KEY_EDITOR_PAGE_SIZE,
     KEY_EDITOR_COMMENTS_OPEN,
+    KEY_EDITOR_MARGIN_X,
+    KEY_EDITOR_MARGIN_Y,
     KEY_SIDEBAR_COLLAPSED,
+    KEY_RIGHT_PANEL_DEFAULT_OPEN,
   ];
   for (const k of keys) {
     try {

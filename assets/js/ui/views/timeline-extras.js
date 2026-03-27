@@ -103,7 +103,7 @@ export function renderExtrasList(book) {
  */
 export function renderExtraEditor(book, eb) {
   return `
-    <div class="nl-view space-y-4">
+    <div class="nl-view-editor space-y-4">
       <button type="button" data-back-extras class="text-sm text-indigo-400 hover:text-indigo-300">← Lista de extras</button>
       <input data-extra-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white py-2 focus:outline-none focus:border-indigo-500" value="${escapeHtml(eb.title)}" />
       ${editorCardWithHost('data-ed-extra class="nl-editor min-h-[240px]"')}

@@ -8,10 +8,12 @@ import {
   EXPORT_REMINDER_DAYS,
   daysSinceLastExport,
   exportReminderSummaryLine,
+  getRightPanelDefaultExpanded,
   getSidebarCollapsed,
   setSidebarCollapsed,
   shouldShowExportReminder,
   setLastExportNow,
+  setEditorCommentsPanelOpen,
 } from '../domain/prefs.js';
 import { createSnapshot } from '../domain/models.js';
 import { computeWordStats } from '../narrative/export.js';
@@ -33,6 +35,17 @@ function applySidebarCollapseLayout(sidebar, collapsed) {
  * @param {HTMLElement} sidebar
  * @param {import('./app.js').App} app
  */
+/**
+ * @param {import('./app.js').App} app
+ * @param {HTMLElement} right
+ */
+function applyRightPanelInitialVisibility(app, right) {
+  const open = getRightPanelDefaultExpanded();
+  app.state.rightOpen = open;
+  right.classList.toggle('hidden', !open);
+  right.classList.toggle('lg:flex', open);
+}
+
 function bindSidebarCollapseToggle(sidebar, app) {
   sidebar.querySelector('[data-sidebar-collapse]')?.addEventListener('click', () => {
     setSidebarCollapsed(true);
@@ -82,6 +95,8 @@ export function mountShell(root, app) {
     right.classList.toggle('hidden', !app.state.rightOpen);
     right.classList.toggle('lg:flex', app.state.rightOpen);
   });
+
+  applyRightPanelInitialVisibility(app, right);
 
   return { sidebar, main, right, modalHost, saveStatus, saveSnapshotBtn };
 }
@@ -379,6 +394,26 @@ export function renderRightPanel(app) {
     right.innerHTML = `<div class="p-4 text-sm text-nl-muted">Abre un libro para ver progreso y relaciones.</div>`;
     return;
   }
+
+  if (app.state.rightPanelMode === 'comments' && isBookEditorSurface(app) && app.editor) {
+    right.innerHTML = `
+      <div class="flex flex-col h-full min-h-0">
+        <div class="p-3 border-b border-nl-border flex items-center justify-between gap-2 shrink-0">
+          <span class="text-xs font-medium text-slate-300">Comentarios (este fragmento)</span>
+          <button type="button" data-nl-right-comments-back class="text-xs text-indigo-400 hover:text-indigo-300 shrink-0">Resumen del libro</button>
+        </div>
+        <ul data-nl-comments-list class="flex-1 overflow-y-auto nl-scroll p-2 space-y-2 min-h-0 text-sm"></ul>
+      </div>
+    `;
+    right.querySelector('[data-nl-right-comments-back]')?.addEventListener('click', () => {
+      app.state.rightPanelMode = 'stats';
+      setEditorCommentsPanelOpen(false);
+      renderRightPanel(app);
+    });
+    app.syncEditorCommentsPanel(/** @type {HTMLElement} */ (app.editor.host));
+    return;
+  }
+
   const stats = computeWordStats(book);
   const bstats = getBookStats(book);
   const pct = stats.goal > 0 ? Math.min(100, Math.round((stats.total / stats.goal) * 100)) : 0;

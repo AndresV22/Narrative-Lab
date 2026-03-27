@@ -41,7 +41,7 @@ export function renderWorldRulesList(book) {
  */
 export function renderWorldRuleEditor(rule) {
   return `
-    <div class="nl-view nl-view-grow space-y-4">
+    <div class="nl-view-editor nl-view-grow space-y-4">
       <button type="button" data-back-world-rules class="text-sm text-indigo-400 hover:text-indigo-300 shrink-0">← Lista de reglas</button>
       <input data-world-rule-title class="text-xl font-semibold bg-transparent border-b border-nl-border w-full text-white py-2 focus:outline-none focus:border-indigo-500" value="${escapeHtml(rule.title)}" placeholder="Título de la regla" />
       ${editorCardWithHost('data-ed-world-rule class="nl-editor flex-1 min-h-[240px]"')}

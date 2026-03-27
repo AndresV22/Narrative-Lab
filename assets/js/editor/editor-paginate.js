@@ -3,6 +3,10 @@
  */
 
 /**
+ * Offset en el flujo solo de nodos de texto (igual que {@link restoreCaretTextOffset}).
+ * No usa Range.toString(): incluye saltos implícitos entre bloques y no coincide con el walker.
+ * Si el caret está en un elemento (p. ej. &lt;p&gt; con solo &lt;br&gt; tras Enter), devuelve null;
+ * ahí se usa {@link insertCaretMarker}.
  * @param {HTMLElement} host
  * @returns {number|null}
  */
@@ -11,14 +15,66 @@ function saveCaretTextOffset(host) {
   if (!sel || sel.rangeCount === 0) return null;
   const r = sel.getRangeAt(0);
   if (!host.contains(r.commonAncestorContainer)) return null;
-  const pre = document.createRange();
-  try {
-    pre.setStart(host, 0);
-    pre.setEnd(r.startContainer, r.startOffset);
-    return pre.toString().length;
-  } catch {
-    return null;
+  if (r.startContainer.nodeType !== Node.TEXT_NODE) return null;
+
+  const textNode = r.startContainer;
+  const offset = r.startOffset;
+  let total = 0;
+  const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, null);
+  let n;
+  while ((n = walker.nextNode())) {
+    if (n === textNode) {
+      return total + Math.min(offset, n.length);
+    }
+    total += n.length;
   }
+  return null;
+}
+
+/**
+ * Inserta un span vacío en el caret (sin nodo de texto) para localizarlo tras rehacer el DOM.
+ * @param {HTMLElement} host
+ * @returns {boolean}
+ */
+function insertCaretMarker(host) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const r = sel.getRangeAt(0);
+  if (!r.collapsed) return false;
+  if (!host.contains(r.commonAncestorContainer)) return false;
+
+  const span = document.createElement('span');
+  span.setAttribute('data-nl-caret-marker', '');
+  span.style.display = 'none';
+  span.setAttribute('aria-hidden', 'true');
+  try {
+    r.insertNode(span);
+    const nr = document.createRange();
+    nr.setStartAfter(span);
+    nr.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * @param {HTMLElement} host
+ * @returns {boolean}
+ */
+function removeCaretMarker(host) {
+  const m = host.querySelector('[data-nl-caret-marker]');
+  if (!m?.parentNode) return false;
+  const r = document.createRange();
+  r.setStartAfter(m);
+  r.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+  m.parentNode.removeChild(m);
+  return true;
 }
 
 /**
@@ -132,7 +188,8 @@ export function flattenPageLayout(host) {
 export function layoutEditorPages(host) {
   if (!host.classList.contains('nl-editor-page-layout')) return;
 
-  const saved = saveCaretTextOffset(host);
+  const savedOffset = saveCaretTextOffset(host);
+  const markerPlaced = insertCaretMarker(host);
 
   const blocks = collectTopLevelBlocks(host);
   /** @type {HTMLElement[]} */
@@ -168,10 +225,14 @@ export function layoutEditorPages(host) {
     }
   }
 
-  if (saved !== null) {
-    queueMicrotask(() => {
-      restoreCaretTextOffset(host, saved);
-      host.focus();
-    });
-  }
+  queueMicrotask(() => {
+    if (markerPlaced) {
+      if (!removeCaretMarker(host) && savedOffset !== null) {
+        restoreCaretTextOffset(host, savedOffset);
+      }
+    } else if (savedOffset !== null) {
+      restoreCaretTextOffset(host, savedOffset);
+    }
+    host.focus();
+  });
 }

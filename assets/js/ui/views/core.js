@@ -9,7 +9,7 @@ import { NOVEL_CATEGORY_OPTIONS, NOVEL_CATEGORY_OTHER } from '../../domain/book-
 
 export function wrapEditorSection(title, _field) {
   return `
-    <div class="nl-view nl-view-grow">
+    <div class="nl-view-editor nl-view-grow">
       <h2 class="text-lg font-semibold text-white mb-4">${escapeHtml(title)}</h2>
       ${editorCardWithHost('data-ed class="nl-editor flex-1 min-h-[12rem]"')}
     </div>
