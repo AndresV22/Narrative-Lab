@@ -4,6 +4,7 @@
 
 import { escapeHtml } from '../../core/utils.js';
 import { createKanbanBoard, createKanbanColumn, createKanbanTask } from '../../domain/models.js';
+import { showConfirmModal } from '../ui-modals.js';
 
 /** @param {string} colId @param {string} taskId */
 export function dragPayloadTask(colId, taskId) {
@@ -391,11 +392,17 @@ export function bindKanbanList(main, book, app) {
   });
 
   main.querySelectorAll('[data-kan-del-board]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-kan-del-board');
       const kb = id && book.kanbanBoards.find((b) => b.id === id);
       if (!kb) return;
-      if (!confirm(`¿Eliminar el tablero «${kb.name}»?`)) return;
+      const ok = await showConfirmModal(app, {
+        title: 'Eliminar tablero',
+        message: `¿Eliminar el tablero «${kb.name}»?`,
+        confirmLabel: 'Eliminar',
+        danger: true,
+      });
+      if (!ok) return;
       book.kanbanBoards = book.kanbanBoards.filter((b) => b.id !== id);
       app.persist();
       app.refresh();
@@ -432,8 +439,14 @@ export function bindKanbanBoard(main, book, board, app) {
     app.refreshSidebar();
   });
 
-  main.querySelector('[data-kan-board-del]')?.addEventListener('click', () => {
-    if (!confirm(`¿Eliminar el tablero «${board.name}»?`)) return;
+  main.querySelector('[data-kan-board-del]')?.addEventListener('click', async () => {
+    const ok = await showConfirmModal(app, {
+      title: 'Eliminar tablero',
+      message: `¿Eliminar el tablero «${board.name}»?`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     clearKanbanTaskModal(app);
     book.kanbanBoards = book.kanbanBoards.filter((b) => b.id !== board.id);
     app.state.kanbanBoardId = null;
@@ -464,10 +477,16 @@ export function bindKanbanBoard(main, book, board, app) {
   });
 
   main.querySelectorAll('[data-kan-col-del]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-kan-col-del');
       if (!id) return;
-      if (!confirm('¿Eliminar esta columna y las tareas que contiene?')) return;
+      const ok = await showConfirmModal(app, {
+        title: 'Eliminar columna',
+        message: '¿Eliminar esta columna y las tareas que contiene?',
+        confirmLabel: 'Eliminar',
+        danger: true,
+      });
+      if (!ok) return;
       board.columns = board.columns.filter((c) => c.id !== id);
       board.columns.forEach((c, i) => {
         c.order = i;
@@ -502,12 +521,19 @@ export function bindKanbanBoard(main, book, board, app) {
   });
 
   main.querySelectorAll('[data-kan-task-del]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const tid = btn.getAttribute('data-kan-task-del');
       const cid = btn.getAttribute('data-kan-task-del-col');
       const col = cid && board.columns.find((c) => c.id === cid);
       if (!col || !tid) return;
+      const ok = await showConfirmModal(app, {
+        title: 'Eliminar tarea',
+        message: '¿Eliminar esta tarea del tablero?',
+        confirmLabel: 'Eliminar',
+        danger: true,
+      });
+      if (!ok) return;
       col.tasks = col.tasks.filter((t) => t.id !== tid);
       if (app.state.kanbanTaskId === tid) app.state.kanbanTaskId = null;
       clearKanbanTaskModal(app);

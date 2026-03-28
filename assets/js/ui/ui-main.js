@@ -33,7 +33,7 @@ import {
   removeRelationship,
 } from '../narrative/relations.js';
 import { showToast } from './toast.js';
-import { renderClearWorkspaceModal, showCharacterRenameModal } from './ui-modals.js';
+import { renderClearWorkspaceModal, showCharacterRenameModal, showConfirmModal } from './ui-modals.js';
 import {
   renderSidebar,
   renderRightPanel,
@@ -797,14 +797,20 @@ export function bindMainInteractions(app) {
       bindMainInteractions(app);
     });
     main.querySelectorAll('[data-cc-del-rel]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const rid = btn.getAttribute('data-cc-del-rel');
-        if (rid) {
-          removeRelationship(book, rid);
-          app.persist();
-          renderMain(app);
-          bindMainInteractions(app);
-        }
+        if (!rid) return;
+        const ok = await showConfirmModal(app, {
+          title: 'Eliminar relación',
+          message: '¿Eliminar esta relación del mapa?',
+          confirmLabel: 'Eliminar',
+          danger: true,
+        });
+        if (!ok) return;
+        removeRelationship(book, rid);
+        app.persist();
+        renderMain(app);
+        bindMainInteractions(app);
       });
     });
     main.querySelector('[data-back-char]')?.addEventListener('click', () => {
@@ -1049,10 +1055,16 @@ export function bindMainInteractions(app) {
       });
     });
     main.querySelectorAll('[data-del-act]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-del-act');
         if (!id) return;
-        if (!confirm('¿Eliminar este acto? Los capítulos no se borran.')) return;
+        const ok = await showConfirmModal(app, {
+          title: 'Eliminar acto',
+          message: '¿Eliminar este acto? Los capítulos no se borran.',
+          confirmLabel: 'Eliminar',
+          danger: true,
+        });
+        if (!ok) return;
         book.acts = (book.acts || []).filter((a) => a.id !== id);
         if (app.state.actId === id) app.state.actId = null;
         app.persist();
@@ -1074,8 +1086,14 @@ export function bindMainInteractions(app) {
         app.state.actId = null;
         app.refresh();
       });
-      main.querySelector(`[data-del-act-editor="${act.id}"]`)?.addEventListener('click', () => {
-        if (!confirm('¿Eliminar este acto? Los capítulos no se borran.')) return;
+      main.querySelector(`[data-del-act-editor="${act.id}"]`)?.addEventListener('click', async () => {
+        const ok = await showConfirmModal(app, {
+          title: 'Eliminar acto',
+          message: '¿Eliminar este acto? Los capítulos no se borran.',
+          confirmLabel: 'Eliminar',
+          danger: true,
+        });
+        if (!ok) return;
         book.acts = (book.acts || []).filter((a) => a.id !== act.id);
         app.state.actId = null;
         app.persist();
@@ -1155,10 +1173,16 @@ export function bindMainInteractions(app) {
       });
     });
     main.querySelectorAll('[data-del-hl]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-del-hl');
         if (!id) return;
-        if (!confirm('¿Eliminar esta frase destacada?')) return;
+        const ok = await showConfirmModal(app, {
+          title: 'Eliminar frase destacada',
+          message: '¿Eliminar esta frase destacada?',
+          confirmLabel: 'Eliminar',
+          danger: true,
+        });
+        if (!ok) return;
         book.highlights = book.highlights.filter((x) => x.id !== id);
         app.persist();
         renderMain(app);
@@ -1186,8 +1210,14 @@ export function bindMainInteractions(app) {
       main.querySelector(`[data-go-hl="${hl.id}"]`)?.addEventListener('click', () => {
         app.openHighlightSource(hl);
       });
-      main.querySelector(`[data-del-hl="${hl.id}"]`)?.addEventListener('click', () => {
-        if (!confirm('¿Eliminar esta frase destacada?')) return;
+      main.querySelector(`[data-del-hl="${hl.id}"]`)?.addEventListener('click', async () => {
+        const ok = await showConfirmModal(app, {
+          title: 'Eliminar frase destacada',
+          message: '¿Eliminar esta frase destacada?',
+          confirmLabel: 'Eliminar',
+          danger: true,
+        });
+        if (!ok) return;
         book.highlights = book.highlights.filter((x) => x.id !== hl.id);
         app.state.highlightId = null;
         app.persist();
@@ -1217,10 +1247,16 @@ export function bindMainInteractions(app) {
       });
     });
     main.querySelectorAll('[data-del-snap]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-del-snap');
         if (!id) return;
-        if (!confirm('¿Eliminar este snapshot? Esta acción no se puede deshacer.')) return;
+        const ok = await showConfirmModal(app, {
+          title: 'Eliminar snapshot',
+          message: '¿Eliminar este snapshot? Esta acción no se puede deshacer.',
+          confirmLabel: 'Eliminar',
+          danger: true,
+        });
+        if (!ok) return;
         book.snapshots = book.snapshots.filter((x) => x.id !== id);
         app.persist();
         renderMain(app);
@@ -1228,11 +1264,17 @@ export function bindMainInteractions(app) {
       });
     });
     main.querySelectorAll('[data-restore]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-restore');
         const s = book.snapshots.find((x) => x.id === id);
         if (!s) return;
-        if (!confirm('¿Restaurar esta versión? Se sobrescribirá el libro actual.')) return;
+        const ok = await showConfirmModal(app, {
+          title: 'Restaurar versión',
+          message: '¿Restaurar esta versión? Se sobrescribirá el libro actual.',
+          confirmLabel: 'Restaurar',
+          danger: true,
+        });
+        if (!ok) return;
         const idx = app.workspace.books.findIndex((b) => b.id === book.id);
         if (idx >= 0) {
           app.workspace.books[idx] = deepCloneBook(s.payload);
@@ -1444,14 +1486,20 @@ export function bindMainInteractions(app) {
       rerenderRightPanelChrome(app);
     });
     main.querySelectorAll('[data-rel-del]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-rel-del');
-        if (id) {
-          removeRelationship(book, id);
-          app.persist();
-          renderMain(app);
-          bindMainInteractions(app);
-        }
+        if (!id) return;
+        const ok = await showConfirmModal(app, {
+          title: 'Eliminar relación',
+          message: '¿Eliminar esta relación del mapa?',
+          confirmLabel: 'Eliminar',
+          danger: true,
+        });
+        if (!ok) return;
+        removeRelationship(book, id);
+        app.persist();
+        renderMain(app);
+        bindMainInteractions(app);
       });
     });
     book.relationships?.forEach((r) => {

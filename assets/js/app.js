@@ -279,7 +279,7 @@ export class App {
     this._editorToolbarCleanup?.();
     if (toolbar && toolbar instanceof HTMLElement) {
       this._editorToolbarCleanup = bindToolbar(toolbar, this.editor, {
-        onHighlight: () => this.tryHighlight(kind, id, chapterId),
+        onHighlight: () => void this.tryHighlight(kind, id, chapterId),
         onNewComment: () => this.tryAddEditorComment(kind, id, chapterId),
         onToggleCommentsPanel: () => this.toggleEditorCommentsPanel(el),
       });
@@ -526,7 +526,7 @@ export class App {
    * @param {string|null} id
    * @param {string|null} chapterId
    */
-  tryHighlight(kind, id, chapterId) {
+  async tryHighlight(kind, id, chapterId) {
     const book = this.getCurrentBook();
     if (!book || !this.editor) return;
     const text = this.editor.getSelectedText();
@@ -534,7 +534,13 @@ export class App {
       alert('Selecciona un fragmento de texto.');
       return;
     }
-    if (!confirm('¿Añadir esta frase a «Frases destacadas»?')) return;
+    const okAdd = await showConfirmModal(this, {
+      title: 'Frase destacada',
+      message: '¿Añadir esta frase a «Frases destacadas»?',
+      confirmLabel: 'Añadir',
+      cancelLabel: 'Cancelar',
+    });
+    if (!okAdd) return;
     const sid = id || kind;
     /** @type {Record<string, string>} */
     const extra = { description: '', characterId: '', chapterId: '' };
@@ -839,12 +845,18 @@ export class App {
   /**
    * @param {string} chapterId
    */
-  deleteChapterById(chapterId) {
+  async deleteChapterById(chapterId) {
     const book = this.getCurrentBook();
     if (!book) return;
     const ch = book.chapters.find((c) => c.id === chapterId);
     if (!ch) return;
-    if (!confirm(`¿Eliminar el capítulo «${ch.title}» y sus escenas?`)) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar capítulo',
+      message: `¿Eliminar el capítulo «${ch.title}» y sus escenas?`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     const sceneIds = new Set((ch.scenes || []).map((s) => s.id));
     book.chapters = book.chapters.filter((c) => c.id !== chapterId);
     for (const act of book.acts || []) {
@@ -867,12 +879,18 @@ export class App {
   /**
    * @param {string} characterId
    */
-  deleteCharacterById(characterId) {
+  async deleteCharacterById(characterId) {
     const book = this.getCurrentBook();
     if (!book) return;
     const ch = book.characters.find((c) => c.id === characterId);
     if (!ch) return;
-    if (!confirm(`¿Eliminar el personaje «${formatCharacterDisplayName(ch)}»?`)) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar personaje',
+      message: `¿Eliminar el personaje «${formatCharacterDisplayName(ch)}»?`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     book.characters = book.characters.filter((c) => c.id !== characterId);
     book.relationships = (book.relationships || []).filter((r) => {
       if (r.from.kind === 'character' && r.from.id === characterId) return false;
@@ -890,9 +908,18 @@ export class App {
   /**
    * @param {string} eventId
    */
-  deleteEventById(eventId) {
+  async deleteEventById(eventId) {
     const book = this.getCurrentBook();
     if (!book) return;
+    const ev = book.events?.find((e) => e.id === eventId);
+    const title = ev?.title?.trim() || '(sin título)';
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar evento',
+      message: `¿Eliminar el evento «${title}» de la línea de tiempo?`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     book.events = (book.events || []).filter((e) => e.id !== eventId);
     if (this.state.timelineEventId === eventId) this.state.timelineEventId = null;
     book.relationships = (book.relationships || []).filter(
@@ -909,10 +936,16 @@ export class App {
   /**
    * @param {string} noteId
    */
-  deleteNoteById(noteId) {
+  async deleteNoteById(noteId) {
     const book = this.getCurrentBook();
     if (!book) return;
-    if (!confirm('¿Eliminar esta nota?')) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar nota',
+      message: '¿Eliminar esta nota?',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     book.notes = book.notes.filter((n) => n.id !== noteId);
     if (this.state.noteId === noteId) this.state.noteId = null;
     this.persist();
@@ -922,10 +955,16 @@ export class App {
   /**
    * @param {string} extraId
    */
-  deleteExtraBlockById(extraId) {
+  async deleteExtraBlockById(extraId) {
     const book = this.getCurrentBook();
     if (!book) return;
-    if (!confirm('¿Eliminar este extra?')) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar extra',
+      message: '¿Eliminar este extra?',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     book.extraBlocks = (book.extraBlocks || []).filter((e) => e.id !== extraId);
     if (this.state.extraId === extraId) this.state.extraId = null;
     this.persist();
@@ -935,10 +974,16 @@ export class App {
   /**
    * @param {string} ruleId
    */
-  deleteWorldRuleById(ruleId) {
+  async deleteWorldRuleById(ruleId) {
     const book = this.getCurrentBook();
     if (!book) return;
-    if (!confirm('¿Eliminar esta regla?')) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar regla',
+      message: '¿Eliminar esta regla del mundo?',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     book.rules = (book.rules || []).filter((r) => r.id !== ruleId);
     if (this.state.worldRuleId === ruleId) this.state.worldRuleId = null;
     this.persist();
@@ -949,13 +994,19 @@ export class App {
    * @param {string} chapterId
    * @param {string} sceneId
    */
-  deleteSceneById(chapterId, sceneId) {
+  async deleteSceneById(chapterId, sceneId) {
     const book = this.getCurrentBook();
     if (!book) return;
     const ch = book.chapters.find((c) => c.id === chapterId);
     if (!ch) return;
     if (!ch.scenes.some((s) => s.id === sceneId)) return;
-    if (!confirm('¿Eliminar esta escena?')) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar escena',
+      message: '¿Eliminar esta escena?',
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
     ch.scenes = ch.scenes.filter((s) => s.id !== sceneId);
     book.relationships = (book.relationships || []).filter(
       (r) => !(r.type === 'character_scene' && r.to.kind === 'scene' && r.to.id === sceneId)
@@ -1058,7 +1109,13 @@ export class App {
     }
     const incoming = result.workspace;
     if (mode === 'replace') {
-      if (!confirm('¿Reemplazar todos los datos del workspace actual?')) return;
+      const okReplace = await showConfirmModal(this, {
+        title: 'Reemplazar workspace',
+        message: '¿Reemplazar todos los datos del workspace actual? Esta acción no se puede deshacer.',
+        confirmLabel: 'Reemplazar',
+        danger: true,
+      });
+      if (!okReplace) return;
       this.workspace = incoming;
     } else if (mode === 'merge') {
       this.workspace = mergeWorkspaces(/** @type {any} */(this.workspace), incoming);
