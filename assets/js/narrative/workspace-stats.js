@@ -23,9 +23,15 @@ const STATUS_KEYS = ['Borrador', 'En revisión', 'Publicado'];
 
 /**
  * @param {import('../core/types.js').Workspace} workspace
+ * @param {{ bookIds?: Set<string>|null }} [options] Si `bookIds` es un Set, solo esos libros; `null`/omitido = todos.
  */
-export function aggregateWorkspaceStats(workspace) {
-  const books = workspace.books || [];
+export function aggregateWorkspaceStats(workspace, options = {}) {
+  const allBooks = workspace.books || [];
+  const filter = options.bookIds;
+  const books =
+    filter == null
+      ? allBooks
+      : allBooks.filter((b) => filter.has(b.id));
   let totalWords = 0;
   let chapterCount = 0;
   let sceneCount = 0;

@@ -79,6 +79,13 @@ html {
   pointer-events: none;
 }
 
+mark.nl-search-hit {
+  background-color: rgb(251 191 36 / 0.35);
+  color: inherit;
+  border-radius: 0.15em;
+  padding: 0 0.05em;
+}
+
 .nl-editor[contenteditable="true"] {
   min-height: 12rem;
   line-height: 1.75;

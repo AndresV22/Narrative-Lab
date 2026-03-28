@@ -19,6 +19,7 @@ import {
   exportReminderSummaryLine,
   getAutosaveMs,
   setAutosaveMs,
+  setDashboardBookFilter,
   setProgressMode,
   setSpellcheckEnabled,
   setSnapshotIntervalMinutes,
@@ -694,6 +695,33 @@ export function bindMainInteractions(app) {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-lib-open');
         if (id) app.openBook(id);
+      });
+    });
+    main.querySelectorAll('[data-dash-mode]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        if (!radio.checked) return;
+        const mode = radio.getAttribute('data-dash-mode');
+        const wrap = main.querySelector('[data-dash-subset-wrap]');
+        if (wrap) wrap.classList.toggle('hidden', mode !== 'subset');
+        if (mode === 'all') {
+          setDashboardBookFilter('all');
+        } else {
+          const picked = [...main.querySelectorAll('[data-dash-book]:checked')]
+            .map((el) => el.getAttribute('data-dash-book'))
+            .filter(Boolean);
+          const fallback = app.workspace?.books?.map((b) => b.id) ?? [];
+          setDashboardBookFilter('subset', picked.length ? picked : fallback);
+        }
+        app.refresh();
+      });
+    });
+    main.querySelectorAll('[data-dash-book]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const ids = [...main.querySelectorAll('[data-dash-book]:checked')]
+          .map((el) => el.getAttribute('data-dash-book'))
+          .filter(Boolean);
+        setDashboardBookFilter('subset', ids);
+        app.refresh();
       });
     });
     return;

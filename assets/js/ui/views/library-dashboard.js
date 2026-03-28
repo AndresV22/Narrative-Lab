@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml } from '../../core/utils.js';
+import { getDashboardBookFilter } from '../../domain/prefs.js';
 import { aggregateWorkspaceStats } from '../../narrative/workspace-stats.js';
 
 /** @param {number} cx @param {number} cy @param {number} r @param {number} angleRad */
@@ -43,7 +44,49 @@ function donutSvg(segments) {
 export function renderLibraryDashboard(app) {
   const ws = app.workspace;
   if (!ws) return '<div class="p-8 text-nl-muted">Sin datos.</div>';
-  const agg = aggregateWorkspaceStats(ws);
+  const dash = getDashboardBookFilter();
+  /** @type {Set<string>|null} */
+  const bookFilter =
+    dash.mode === 'subset' ? new Set(dash.bookIds) : null;
+  const agg = aggregateWorkspaceStats(ws, { bookIds: bookFilter });
+  const summaryHint =
+    dash.mode === 'all'
+      ? 'Estadísticas combinadas de todos los libros.'
+      : 'Solo se incluyen los libros marcados abajo.';
+  const bookList = ws.books || [];
+  const subsetChecked = (id) => dash.mode === 'subset' && dash.bookIds.includes(id);
+  const filterBlock =
+    bookList.length === 0
+      ? ''
+      : `
+    <div class="rounded-xl border border-nl-border bg-nl-surface/80 p-4 mb-6">
+      <p class="text-xs font-medium text-slate-300 mb-3">Libros incluidos en el resumen</p>
+      <div class="flex flex-wrap gap-4 items-start">
+        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+          <input type="radio" name="nl-dash-books" value="all" class="accent-indigo-500" data-dash-mode="all" ${dash.mode === 'all' ? 'checked' : ''} />
+          Todos los libros
+        </label>
+        <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+          <input type="radio" name="nl-dash-books" value="subset" class="accent-indigo-500" data-dash-mode="subset" ${dash.mode === 'subset' ? 'checked' : ''} />
+          Solo algunos…
+        </label>
+      </div>
+      <div data-dash-subset-wrap class="mt-4 space-y-2 ${dash.mode === 'subset' ? '' : 'hidden'}">
+        <p class="text-[11px] text-nl-muted">Marca los libros que quieras sumar en las cifras y gráficos.</p>
+        <ul class="flex flex-col gap-2 max-h-48 overflow-y-auto nl-scroll pr-1">
+          ${bookList
+            .map(
+              (b) => `
+            <li class="flex items-center gap-2">
+              <input type="checkbox" data-dash-book="${escapeHtml(b.id)}" class="accent-indigo-500 shrink-0" ${subsetChecked(b.id) ? 'checked' : ''} />
+              <span class="text-sm text-slate-300 truncate">${escapeHtml(b.name)}</span>
+            </li>`
+            )
+            .join('')}
+        </ul>
+        ${dash.mode === 'subset' && dash.bookIds.length === 0 ? '<p class="text-xs text-amber-400/90">Ningún libro seleccionado: el resumen muestra ceros.</p>' : ''}
+      </div>
+    </div>`;
   const maxWords = agg.perBook.length ? Math.max(...agg.perBook.map((p) => p.words), 1) : 1;
   const bars =
     agg.perBook.length > 0
@@ -159,7 +202,8 @@ export function renderLibraryDashboard(app) {
     <div class="nl-view-wide space-y-10 pb-16">
       <div>
         <h2 class="text-xl font-semibold text-white mb-2">Resumen del workspace</h2>
-        <p class="text-sm text-nl-muted mb-6">Estadísticas combinadas de todos los libros.</p>
+        <p class="text-sm text-nl-muted mb-4">${escapeHtml(summaryHint)}</p>
+        ${filterBlock}
         <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <div class="rounded-xl border border-nl-border bg-nl-surface p-4">
             <dt class="text-[10px] uppercase tracking-wider text-nl-muted">Libros</dt>

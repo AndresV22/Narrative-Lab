@@ -39,8 +39,48 @@ export function resetLegacyEditorMarginsMigrationForTests() {
   legacyEditorMarginsMigrated = false;
 }
 const KEY_SIDEBAR_COLLAPSED = 'nl_sidebar_collapsed';
+const KEY_DASHBOARD_BOOKS_MODE = 'nl_dashboard_books_mode';
+const KEY_DASHBOARD_BOOK_IDS = 'nl_dashboard_book_ids';
 
 /** @typedef {'boundary'|'debounce'} ProgressMode */
+/** @typedef {'all'|'subset'} DashboardBooksMode */
+
+/**
+ * Filtro del resumen del dashboard (todos los libros o subconjunto).
+ * @returns {{ mode: DashboardBooksMode, bookIds: string[] }}
+ */
+export function getDashboardBookFilter() {
+  const mode = localStorage.getItem(KEY_DASHBOARD_BOOKS_MODE) === 'subset' ? 'subset' : 'all';
+  /** @type {string[]} */
+  let ids = [];
+  try {
+    const raw = localStorage.getItem(KEY_DASHBOARD_BOOK_IDS);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) ids = p.filter((x) => typeof x === 'string');
+    }
+  } catch {
+    /* ignore */
+  }
+  return { mode, bookIds: ids };
+}
+
+/**
+ * @param {DashboardBooksMode} mode
+ * @param {string[]} bookIds ids cuando mode es subset
+ */
+export function setDashboardBookFilter(mode, bookIds = []) {
+  localStorage.setItem(KEY_DASHBOARD_BOOKS_MODE, mode === 'subset' ? 'subset' : 'all');
+  if (mode === 'subset') {
+    localStorage.setItem(KEY_DASHBOARD_BOOK_IDS, JSON.stringify(bookIds.filter((x) => typeof x === 'string')));
+  } else {
+    try {
+      localStorage.removeItem(KEY_DASHBOARD_BOOK_IDS);
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 /**
  * Intervalo de guardado automático (IndexedDB), en ms.
@@ -312,6 +352,8 @@ export function clearAllAppLocalPreferences() {
     KEY_EDITOR_MARGIN_X_LEGACY_PX,
     KEY_EDITOR_MARGIN_Y_LEGACY_PX,
     KEY_SIDEBAR_COLLAPSED,
+    KEY_DASHBOARD_BOOKS_MODE,
+    KEY_DASHBOARD_BOOK_IDS,
   ];
   for (const k of keys) {
     try {

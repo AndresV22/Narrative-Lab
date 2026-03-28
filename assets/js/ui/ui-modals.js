@@ -66,6 +66,21 @@ export function renderSearchModal(app) {
         const id = btn.getAttribute('data-id');
         const chId = btn.getAttribute('data-ch') || '';
         if (!bookId) return;
+        const searchQ = (inp?.value || '').trim();
+        /** @type {Set<string>} */
+        const highlightKinds = new Set([
+          'synopsis',
+          'prologue',
+          'historicalContext',
+          'worldRule',
+          'chapter',
+          'scene',
+          'note',
+          'extra',
+        ]);
+        const kindStr = kind || '';
+        app.state.pendingSearchHighlight =
+          kindStr && highlightKinds.has(kindStr) && searchQ ? { query: searchQ } : null;
         removeDismiss();
         host.innerHTML = '';
         app.state.bookId = bookId;

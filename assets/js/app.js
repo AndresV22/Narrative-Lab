@@ -65,6 +65,7 @@ import {
 import { inferChapterIdForSceneHighlight } from './editor/highlight-source.js';
 import { clearKanbanTaskModal } from './ui/views/kanban.js';
 import { formatCharacterDisplayName } from './domain/character-display.js';
+import { applySearchHighlightToEditorHost } from './narrative/search-highlight.js';
 
 /**
  * @typedef {Object} NavState
@@ -88,6 +89,7 @@ import { formatCharacterDisplayName } from './domain/character-display.js';
  * @property {string|null} [kanbanTaskId]
  * @property {'stats'|'comments'} [rightPanelMode] Contenido del panel derecho global
  * @property {import('./domain/character-rename-pairs.js').CharacterIdentitySlice & { characterId: string } | null} [characterIdentitySnapshot] Copia al abrir la ficha (reemplazo global)
+ * @property {{ query: string } | null} [pendingSearchHighlight] Resaltar búsqueda global tras abrir el editor
  */
 
 export class App {
@@ -116,6 +118,7 @@ export class App {
       kanbanTaskId: null,
       rightPanelMode: 'stats',
       characterIdentitySnapshot: null,
+      pendingSearchHighlight: null,
     };
     /** @type {ReturnType<typeof setInterval> | null} */
     this.autoSnapshotTimer = null;
@@ -284,6 +287,14 @@ export class App {
     if (this.els) {
       renderRightPanel(this);
       applyRightPanelLayout(this);
+    }
+
+    const pendingHl = this.state.pendingSearchHighlight;
+    this.state.pendingSearchHighlight = null;
+    if (pendingHl?.query && el) {
+      queueMicrotask(() => {
+        applySearchHighlightToEditorHost(el, pendingHl.query);
+      });
     }
   }
 
@@ -1006,6 +1017,8 @@ export class App {
       kanbanBoardId: null,
       kanbanTaskId: null,
       rightPanelMode: 'stats',
+      characterIdentitySnapshot: null,
+      pendingSearchHighlight: null,
     };
     this.els.modalHost.innerHTML = '';
     this.refresh();

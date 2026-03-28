@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   clearAllAppLocalPreferences,
+  getDashboardBookFilter,
   getEditorMarginHorizontalCm,
   getEditorMarginVerticalCm,
   resetLegacyEditorMarginsMigrationForTests,
+  setDashboardBookFilter,
   setEditorMarginHorizontalCm,
   setEditorMarginVerticalCm,
 } from './prefs.js';
@@ -42,6 +44,7 @@ describe('prefs — márgenes y localStorage', () => {
     setEditorMarginVerticalCm(2);
     localStorage.setItem('nl_autosave_ms', '5000');
     localStorage.setItem('nl_progress_mode', 'debounce');
+    setDashboardBookFilter('subset', ['x']);
     clearAllAppLocalPreferences();
     expect(localStorage.getItem('nl_editor_margin_x_cm')).toBeNull();
     expect(localStorage.getItem('nl_editor_margin_y_cm')).toBeNull();
@@ -49,5 +52,17 @@ describe('prefs — márgenes y localStorage', () => {
     expect(localStorage.getItem('nl_editor_margin_y_px')).toBeNull();
     expect(localStorage.getItem('nl_autosave_ms')).toBeNull();
     expect(localStorage.getItem('nl_progress_mode')).toBeNull();
+    expect(localStorage.getItem('nl_dashboard_books_mode')).toBeNull();
+    expect(localStorage.getItem('nl_dashboard_book_ids')).toBeNull();
+  });
+
+  it('get/set filtro dashboard (todos vs subconjunto)', () => {
+    expect(getDashboardBookFilter().mode).toBe('all');
+    setDashboardBookFilter('subset', ['a', 'b']);
+    expect(getDashboardBookFilter().mode).toBe('subset');
+    expect(getDashboardBookFilter().bookIds).toEqual(['a', 'b']);
+    setDashboardBookFilter('all');
+    expect(getDashboardBookFilter().mode).toBe('all');
+    expect(localStorage.getItem('nl_dashboard_book_ids')).toBeNull();
   });
 });
