@@ -565,7 +565,7 @@ function applyZoomVisual(desk, zoomWrap, zoomLabel, pct) {
  * Crea barra de herramientas y la vincula al editor.
  * @param {HTMLElement} toolbarEl
  * @param {RichEditor} editor
- * @param {{ onHighlight?: () => void, onNewComment?: () => void, onToggleCommentsPanel?: () => void }} [hooks]
+ * @param {{ onHighlight?: () => void, onNewComment?: () => void, onToggleCommentsPanel?: () => void, onExportFragment?: () => void }} [hooks]
  * @returns {() => void}
  */
 export function bindToolbar(toolbarEl, editor, hooks = {}) {
@@ -1016,6 +1016,14 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
     });
   }
 
+  const exportFragmentBtn = toolbarEl.querySelector('[data-export-fragment]');
+  if (exportFragmentBtn && hooks.onExportFragment) {
+    exportFragmentBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      hooks.onExportFragment();
+    });
+  }
+
   const onSel = () => {
     queueMicrotask(() => syncToolbarToSelection(toolbarEl, editor));
   };
@@ -1220,6 +1228,7 @@ export function toolbarHtml() {
         </div>
         ${sep}
         <button type="button" data-highlight-btn class="px-2 py-1.5 rounded text-xs border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 shrink-0" title="Añadir a frases destacadas">Destacar</button>
+        <button type="button" data-export-fragment class="px-2 py-1.5 rounded text-xs border border-emerald-500/35 text-emerald-300/95 hover:bg-emerald-500/10 shrink-0" title="Exportar solo este fragmento a PDF (impresión del navegador)" aria-label="Exportar fragmento">Exportar</button>
         <button type="button" data-editor-fullscreen class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised border border-nl-border shrink-0" title="Pantalla completa del editor" aria-label="Pantalla completa del editor">${iconMaximize}</button>
         <button type="button" data-editor-fullscreen-exit class="hidden nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised border border-nl-border shrink-0" title="Salir de pantalla completa" aria-label="Salir de pantalla completa">${iconMinimize}</button>
       </div>

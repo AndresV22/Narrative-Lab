@@ -377,6 +377,19 @@ export function exportCharacterPdfPrint(book, characterId) {
 }
 
 /**
+ * PDF vía impresión: solo el contenido del editor actual (sinopsis, capítulo, nota, etc.).
+ * @param {import('../core/types.js').Book} book
+ * @param {string} fragmentTitle
+ * @param {string} html
+ */
+export function exportEditorFragmentPdfPrint(book, fragmentTitle, html) {
+  const article = `<article class="nl-book-export nl-editor-fragment"><h1>${escape(
+    fragmentTitle
+  )}</h1><p class="meta"><em>${escape(book.name)}</em></p>${cleanExportHtml(html)}</article>`;
+  injectPrintRoot(article);
+}
+
+/**
  * @param {import('../core/types.js').Book} book
  */
 export function exportAllCharactersPdfPrint(book) {

@@ -66,6 +66,49 @@ import { inferChapterIdForSceneHighlight } from './editor/highlight-source.js';
 import { clearKanbanTaskModal } from './ui/views/kanban.js';
 import { formatCharacterDisplayName } from './domain/character-display.js';
 import { applySearchHighlightToEditorHost } from './narrative/search-highlight.js';
+import { exportEditorFragmentPdfPrint } from './narrative/export.js';
+
+/**
+ * Título legible para exportar PDF del fragmento abierto en el editor.
+ * @param {import('./core/types.js').Book} book
+ * @param {string} kind
+ * @param {string|null} [id]
+ * @param {string|null} [chapterId]
+ */
+function editorFragmentTitleForExport(book, kind, id = null, chapterId = null) {
+  if (kind === 'synopsis') return 'Sinopsis';
+  if (kind === 'historicalContext') return 'Contexto';
+  if (kind === 'worldRules') return 'Reglas del mundo';
+  if (kind === 'worldRule' && id) {
+    const r = book.rules?.find((x) => x.id === id);
+    return (r?.title && String(r.title).trim()) || 'Regla';
+  }
+  if (kind === 'prologue') return 'Prólogo';
+  if (kind === 'epilogue') return 'Epílogo';
+  if (kind === 'extras') return 'Extras';
+  if (kind === 'chapter' && id) {
+    const ch = book.chapters.find((c) => c.id === id);
+    return (ch?.title && String(ch.title).trim()) || 'Capítulo';
+  }
+  if (kind === 'scene' && id && chapterId) {
+    const ch = book.chapters.find((c) => c.id === chapterId);
+    const sc = ch?.scenes.find((s) => s.id === id);
+    const st = sc?.title ? String(sc.title).trim() : '';
+    const ct = ch?.title ? String(ch.title).trim() : '';
+    if (st && ct) return `${st} — ${ct}`;
+    if (st) return st;
+    return 'Escena';
+  }
+  if (kind === 'note' && id) {
+    const n = book.notes.find((x) => x.id === id);
+    return (n?.title && String(n.title).trim()) || 'Nota';
+  }
+  if (kind === 'extra' && id) {
+    const ex = book.extraBlocks?.find((x) => x.id === id);
+    return (ex?.title && String(ex.title).trim()) || 'Extra';
+  }
+  return 'Fragmento';
+}
 
 /**
  * @typedef {Object} NavState
@@ -282,6 +325,12 @@ export class App {
         onHighlight: () => void this.tryHighlight(kind, id, chapterId),
         onNewComment: () => this.tryAddEditorComment(kind, id, chapterId),
         onToggleCommentsPanel: () => this.toggleEditorCommentsPanel(el),
+        onExportFragment: () => {
+          const b = this.getCurrentBook();
+          if (!b || !this.editor) return;
+          const title = editorFragmentTitleForExport(b, kind, id, chapterId);
+          exportEditorFragmentPdfPrint(b, title, this.editor.getHtml());
+        },
       });
     }
     if (this.els) {
