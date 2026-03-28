@@ -32,7 +32,7 @@ import {
   removeRelationship,
 } from '../narrative/relations.js';
 import { showToast } from './toast.js';
-import { renderClearWorkspaceModal } from './ui-modals.js';
+import { renderClearWorkspaceModal, showCharacterRenameModal } from './ui-modals.js';
 import {
   renderSidebar,
   renderRightPanel,
@@ -71,6 +71,9 @@ import { renderLibraryDashboard } from './views/library-dashboard.js';
 import { renderAuthorProfileForm } from './views/author-profile.js';
 import { renderWorldRulesList, renderWorldRuleEditor } from './views/world-rules.js';
 import { NOVEL_CATEGORY_OTHER } from '../domain/book-categories.js';
+import { parseCommaSeparatedTokens, computeCharacterRenamePairs } from '../domain/character-rename-pairs.js';
+import { applyReplacementsToBook } from '../narrative/book-html-replace.js';
+import { formatCharacterDisplayName } from '../domain/character-display.js';
 import { isoDateToDisplay, displayDateToIso } from '../core/date-format.js';
 
 /**
@@ -120,19 +123,77 @@ function syncActFromForm(book, act, main) {
 }
 
 /**
+ * @param {HTMLElement} main
+ * @returns {import('../domain/character-rename-pairs.js').CharacterIdentitySlice & Record<string, string>}
+ */
+function readCharacterFormValues(main) {
+  const nickRaw = gv(main, 'nicknames');
+  const nick = parseCommaSeparatedTokens(nickRaw).join(', ');
+  return {
+    name: gv(main, 'name').trim(),
+    paternalSurname: gv(main, 'paternalSurname').trim(),
+    maternalSurname: gv(main, 'maternalSurname').trim(),
+    nicknames: nick,
+    likes: gv(main, 'likes'),
+    dislikes: gv(main, 'dislikes'),
+    birthPlace: gv(main, 'birthPlace').trim(),
+    birthDate: gv(main, 'birthDate').trim(),
+    deathDate: gv(main, 'deathDate').trim(),
+    role: gv(main, 'role'),
+    age: gv(main, 'age'),
+    description: gv(main, 'description'),
+    personality: gv(main, 'personality'),
+    goals: gv(main, 'goals'),
+    conflicts: gv(main, 'conflicts'),
+    narrativeArc: gv(main, 'narrativeArc'),
+  };
+}
+
+/**
+ * @param {import('../core/types.js').Character} ch
+ * @param {ReturnType<typeof readCharacterFormValues>} v
+ */
+function applyCharacterFormValues(ch, v) {
+  ch.name = v.name;
+  ch.paternalSurname = v.paternalSurname;
+  ch.maternalSurname = v.maternalSurname;
+  ch.nicknames = v.nicknames;
+  ch.likes = v.likes;
+  ch.dislikes = v.dislikes;
+  ch.birthPlace = v.birthPlace;
+  ch.birthDate = v.birthDate;
+  ch.deathDate = v.deathDate;
+  ch.role = /** @type {import('../core/types.js').Character['role']} */ (v.role);
+  ch.age = v.age;
+  ch.description = v.description;
+  ch.personality = v.personality;
+  ch.goals = v.goals;
+  ch.conflicts = v.conflicts;
+  ch.narrativeArc = v.narrativeArc;
+}
+
+/**
  * Aplica al modelo los campos del formulario de personaje (evita perder texto al subir imagen o re-renderizar).
  * @param {HTMLElement} main
  * @param {import('../core/types.js').Character} ch
  */
 function syncCharacterFormToModel(main, ch) {
-  ch.name = gv(main, 'name');
-  ch.role = gv(main, 'role');
-  ch.age = gv(main, 'age');
-  ch.description = gv(main, 'description');
-  ch.personality = gv(main, 'personality');
-  ch.goals = gv(main, 'goals');
-  ch.conflicts = gv(main, 'conflicts');
-  ch.narrativeArc = gv(main, 'narrativeArc');
+  applyCharacterFormValues(ch, readCharacterFormValues(main));
+}
+
+/**
+ * @param {HTMLElement} main
+ */
+function bindCharacterTextareaAutosize(main) {
+  main.querySelectorAll('textarea.nl-textarea-autosize').forEach((el) => {
+    const ta = /** @type {HTMLTextAreaElement} */ (el);
+    const resize = () => {
+      ta.style.height = 'auto';
+      ta.style.height = `${Math.min(ta.scrollHeight, 384)}px`;
+    };
+    resize();
+    ta.addEventListener('input', resize);
+  });
 }
 
 /**
@@ -671,16 +732,25 @@ export function bindMainInteractions(app) {
   if (app.state.view === 'character' && app.state.characterId) {
     const ch = book.characters.find((c) => c.id === app.state.characterId);
     if (!ch) return;
+    app.state.characterIdentitySnapshot = {
+      characterId: ch.id,
+      name: ch.name || '',
+      paternalSurname: ch.paternalSurname || '',
+      maternalSurname: ch.maternalSurname || '',
+      nicknames: ch.nicknames || '',
+    };
+    bindCharacterTextareaAutosize(main);
+    const displayName = formatCharacterDisplayName(ch);
     main.querySelector('[data-char-img]')?.addEventListener('click', () => {
       if (!ch.imageDataUrl) return;
       import('./ui-modals.js').then(({ renderImageLightbox }) => {
-        renderImageLightbox(app, ch.imageDataUrl, ch.name || 'Personaje');
+        renderImageLightbox(app, ch.imageDataUrl, displayName);
       });
     });
     main.querySelector('[data-char-img-zoom]')?.addEventListener('click', () => {
       if (!ch.imageDataUrl) return;
       import('./ui-modals.js').then(({ renderImageLightbox }) => {
-        renderImageLightbox(app, ch.imageDataUrl, ch.name || 'Personaje');
+        renderImageLightbox(app, ch.imageDataUrl, displayName);
       });
     });
     main.querySelector('[data-cc-add]')?.addEventListener('click', () => {
@@ -710,7 +780,6 @@ export function bindMainInteractions(app) {
       });
     });
     main.querySelector('[data-back-char]')?.addEventListener('click', () => {
-      app.state.characterId = null;
       app.setView('characters');
     });
     main.querySelector('[data-char-file]')?.addEventListener('change', async (e) => {
@@ -727,10 +796,35 @@ export function bindMainInteractions(app) {
         alert(err instanceof Error ? err.message : 'Error');
       }
     });
-    main.querySelector('[data-save-char]')?.addEventListener('click', () => {
-      syncCharacterFormToModel(main, ch);
+    main.querySelector('[data-save-char]')?.addEventListener('click', async () => {
+      const pending = readCharacterFormValues(main);
+      const snap = app.state.characterIdentitySnapshot;
+      const identityPairs =
+        snap && snap.characterId === ch.id
+          ? computeCharacterRenamePairs(
+              {
+                name: snap.name,
+                paternalSurname: snap.paternalSurname,
+                maternalSurname: snap.maternalSurname,
+                nicknames: snap.nicknames,
+              },
+              {
+                name: pending.name,
+                paternalSurname: pending.paternalSurname,
+                maternalSurname: pending.maternalSurname,
+                nicknames: pending.nicknames,
+              }
+            )
+          : [];
+      if (identityPairs.length > 0) {
+        const res = await showCharacterRenameModal(app, identityPairs);
+        if (res === 'cancel') return;
+        if (typeof res === 'object' && res.applyPairs?.length) {
+          applyReplacementsToBook(book, res.applyPairs);
+        }
+      }
+      applyCharacterFormValues(ch, pending);
       app.persist();
-      app.state.characterId = null;
       app.setView('characters');
     });
     main.querySelector('[data-char-pdf]')?.addEventListener('click', async () => {

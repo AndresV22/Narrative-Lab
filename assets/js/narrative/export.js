@@ -3,6 +3,7 @@
  */
 
 import { characterRoleLabel } from '../domain/character-roles.js';
+import { formatCharacterDisplayName } from '../domain/character-display.js';
 import {
   EDITOR_DEFAULT_FONT_SIZE_PX,
   EDITOR_DEFAULT_FONT_STACK,
@@ -16,42 +17,14 @@ import {
 } from '../domain/prefs.js';
 import { stripNlCommentMarks, stripNlHighlightMarks } from '../editor/editor-helpers.js';
 import { sortByOrder, stripHtml, wordCountFromHtml } from '../core/utils.js';
-
-/** Pila tipográfica segura para CSS (p. ej. "Crimson Pro"). */
-function cssFontStackForExport(stack) {
-  return stack
-    .split(',')
-    .map((s) => {
-      const t = s.trim();
-      if (!t) return '';
-      return /\s/.test(t) ? `"${t.replace(/"/g, '')}"` : t;
-    })
-    .filter(Boolean)
-    .join(', ');
-}
-
-/** 1 cm → twips (1 in = 1440 twips). */
-function cmToPageTwip(cm) {
-  return Math.round((Number(cm) / 2.54) * 1440);
-}
-
-/**
- * @param {string} id
- * @returns {{ width: number, height: number }}
- */
-function editorPageSizeToDocxTwips(id) {
-  switch (id) {
-    case 'letter':
-      return { width: 12240, height: 15840 };
-    case 'legal':
-      return { width: 12240, height: 20160 };
-    case 'a5':
-      return { width: 8391, height: 11906 };
-    case 'a4':
-    default:
-      return { width: 11906, height: 16838 };
-  }
-}
+import {
+  cssFontStackForExport,
+  cmToPageTwip,
+  cssFontSizeToHalfPoints,
+  editorPageSizeToDocxTwips,
+  firstFontFromStack,
+  parseColorForDocx,
+} from './export-helpers.js';
 
 /** @returns {string} */
 function buildExportPrintStylesheet() {
@@ -129,57 +102,6 @@ function buildExportPrintStylesheet() {
 .nl-print-export .nl-lh-comfort { line-height: 1.75; }
 .nl-print-export .nl-lh-relaxed { line-height: 2.15; }
   `.trim();
-}
-
-/**
- * @param {string} [cssColor]
- * @returns {string|undefined} RRGGBB sin # para docx
- */
-function parseColorForDocx(cssColor) {
-  if (!cssColor) return undefined;
-  const s = String(cssColor).trim();
-  const hex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (hex) {
-    let h = hex[1];
-    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-    return h.toUpperCase();
-  }
-  const rgb = s.match(/^rgba?\(\s*([^)]+)\)/i);
-  if (rgb) {
-    const parts = rgb[1].trim().split(/[\s,/]+/).filter((x) => x !== '' && x !== '/');
-    if (parts.length >= 3) {
-      const toHex = (n) => Math.min(255, Math.max(0, Math.round(Number(n)))).toString(16).padStart(2, '0');
-      return `${toHex(parts[0])}${toHex(parts[1])}${toHex(parts[2])}`.toUpperCase();
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {string} [fontSize] CSS font-size
- * @returns {number|undefined} Medios puntos (docx)
- */
-function cssFontSizeToHalfPoints(fontSize) {
-  if (!fontSize) return undefined;
-  const s = String(fontSize).trim();
-  const px = s.match(/^([\d.]+)px$/i);
-  if (px) {
-    const pt = (parseFloat(px[1]) * 72) / 96;
-    return Math.max(2, Math.round(pt * 2));
-  }
-  const pt = s.match(/^([\d.]+)pt$/i);
-  if (pt) return Math.max(2, Math.round(parseFloat(pt[1]) * 2));
-  return undefined;
-}
-
-/**
- * @param {string} stack
- * @returns {string|undefined}
- */
-function firstFontFromStack(stack) {
-  if (!stack) return undefined;
-  const first = stack.split(',')[0].trim().replace(/^["']|["']$/g, '');
-  return first || undefined;
 }
 
 /**
@@ -319,7 +241,7 @@ export function assembleReferenceBundleHtml(book) {
     parts.push('<h2>Personajes</h2>');
     for (const c of chars) {
       parts.push(
-        `<h3>${escape(c.name || 'Sin nombre')}</h3>`,
+        `<h3>${escape(formatCharacterDisplayName(c))}</h3>`,
         characterPlanningFieldsHtml(c)
       );
     }
@@ -350,11 +272,25 @@ export function assembleReferenceBundleHtml(book) {
  */
 function characterPlanningFieldsHtml(ch) {
   let html = `<p><strong>Papel:</strong> ${escape(characterRoleLabel(ch.role))}</p>`;
+  if (ch.nicknames && String(ch.nicknames).trim()) {
+    html += `<p><strong>Apodos:</strong> ${escape(String(ch.nicknames))}</p>`;
+  }
   if (ch.age) html += `<p><strong>Edad:</strong> ${escape(ch.age)}</p>`;
+  if (ch.birthPlace && stripHtml(ch.birthPlace)) {
+    html += `<p><strong>Lugar de nacimiento:</strong> ${escape(ch.birthPlace)}</p>`;
+  }
+  if (ch.birthDate && stripHtml(ch.birthDate)) {
+    html += `<p><strong>Fecha de nacimiento:</strong> ${escape(ch.birthDate)}</p>`;
+  }
+  if (ch.deathDate && stripHtml(ch.deathDate)) {
+    html += `<p><strong>Fecha de defunción:</strong> ${escape(ch.deathDate)}</p>`;
+  }
   if (ch.imageDataUrl) {
     html += `<p><img src="${ch.imageDataUrl}" alt="" style="max-width:12rem;height:auto;"/></p>`;
   }
   const blocks = [
+    ['Cosas que le gustan', ch.likes],
+    ['Cosas que no le gustan', ch.dislikes],
     ['Descripción', ch.description],
     ['Personalidad', ch.personality],
     ['Objetivos', ch.goals],
@@ -382,7 +318,7 @@ function characterPrintFieldsHtml(ch) {
  * @param {import('../core/types.js').Character} ch
  */
 export function characterToPrintableHtml(book, ch) {
-  return `<article class="nl-book-export nl-char-print"><h1>${escape(ch.name || 'Personaje')}</h1><p class="meta"><em>${escape(
+  return `<article class="nl-book-export nl-char-print"><h1>${escape(formatCharacterDisplayName(ch))}</h1><p class="meta"><em>${escape(
     book.name
   )}</em></p>${characterPrintFieldsHtml(ch)}</article>`;
 }
@@ -394,7 +330,7 @@ export function characterToPrintableHtml(book, ch) {
 export function allCharactersPrintableHtml(book) {
   const parts = [`<h1>${escape(book.name)}</h1><h2>Personajes</h2>`];
   for (const ch of book.characters || []) {
-    parts.push(`<h2>${escape(ch.name || 'Sin nombre')}</h2>`, characterPrintFieldsHtml(ch));
+    parts.push(`<h2>${escape(formatCharacterDisplayName(ch))}</h2>`, characterPrintFieldsHtml(ch));
   }
   return `<article class="nl-book-export nl-char-print-all">${parts.join('\n')}</article>`;
 }
@@ -844,7 +780,7 @@ function sanitizeFilename(name) {
 }
 
 /**
- * Estadísticas de palabras para panel.
+ * Estadísticas de palabras del libro completo (incluye planificación, notas, etc.).
  * @param {import('../core/types.js').Book} book
  */
 export function computeWordStats(book) {
@@ -870,6 +806,28 @@ export function computeWordStats(book) {
   for (const n of book.notes || []) {
     total += wordCountFromHtml(n.content || '');
   }
+  /** @type {{ id: string, title: string, words: number }[]} */
+  const chapters = [];
+  for (const ch of sortByOrder(book.chapters || [], 'order')) {
+    let w = wordCountFromHtml(ch.content || '');
+    for (const sc of sortByOrder(ch.scenes || [], 'order')) {
+      w += wordCountFromHtml(sc.content || '');
+    }
+    chapters.push({ id: ch.id, title: ch.title, words: w });
+    total += w;
+  }
+  return { total, chapters, goal: book.wordGoal || 0 };
+}
+
+/**
+ * Palabras para el panel de progreso y la meta: solo manuscrito (prólogo, capítulos, escenas, epílogo).
+ * No incluye sinopsis, contexto, reglas del mundo, extras, notas, eventos de línea temporal ni fichas de personajes.
+ * @param {import('../core/types.js').Book} book
+ */
+export function computeProgressWordStats(book) {
+  let total = 0;
+  total += wordCountFromHtml(book.prologue || '');
+  total += wordCountFromHtml(book.epilogue || '');
   /** @type {{ id: string, title: string, words: number }[]} */
   const chapters = [];
   for (const ch of sortByOrder(book.chapters || [], 'order')) {

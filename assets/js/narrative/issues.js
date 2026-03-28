@@ -3,6 +3,7 @@
  */
 
 import { listRelationships } from './relations.js';
+import { formatCharacterDisplayName } from '../domain/character-display.js';
 import { sortByOrder, wordCountFromHtml } from '../core/utils.js';
 
 /**
@@ -54,7 +55,7 @@ export function detectNarrativeIssues(book) {
       out.push({
         severity: 'info',
         code: 'character_no_links',
-        message: `Personaje «${c.name || 'Sin nombre'}» sin vínculos en Relaciones`,
+        message: `Personaje «${formatCharacterDisplayName(c)}» sin vínculos en Relaciones`,
         characterId: c.id,
       });
     }

@@ -3,6 +3,7 @@
  */
 
 import { computeWordStats } from './export.js';
+import { formatCharacterDisplayName } from '../domain/character-display.js';
 import { displayDateToIso, normalizeDateLabelIfNumeric } from '../core/date-format.js';
 import { listRelationships } from './relations.js';
 import { sortByOrder, wordCountFromHtml } from '../core/utils.js';
@@ -151,7 +152,7 @@ export function detectNarrativeIssues(book) {
       out.push({
         severity: 'info',
         code: 'character_no_links',
-        message: `Personaje «${c.name || 'Sin nombre'}» sin vínculos en Relaciones`,
+        message: `Personaje «${formatCharacterDisplayName(c)}» sin vínculos en Relaciones`,
         characterId: c.id,
       });
     }
@@ -190,7 +191,7 @@ export function getCharacterUsage(book) {
   for (const c of book.characters || []) {
     map.set(c.id, {
       characterId: c.id,
-      name: c.name || 'Sin nombre',
+      name: formatCharacterDisplayName(c),
       chapterIds: [],
       sceneIds: [],
     });

@@ -3,6 +3,7 @@
  */
 
 import { listRelationships, CHARACTER_LINK_ROLE_OPTIONS, isChildRole } from './relations.js';
+import { formatCharacterDisplayName } from '../domain/character-display.js';
 
 /** @type {Record<string, string>} */
 export const CHARACTER_LINK_ROLE_EDGE_COLORS = {
@@ -191,7 +192,7 @@ export function buildCharacterNetworkLayout(book, rootId) {
   /** @type {Map<string, string>} */
   const labels = new Map();
   for (const c of chars) {
-    labels.set(c.id, (c.name || 'Sin nombre').slice(0, 34));
+    labels.set(c.id, formatCharacterDisplayName(c).slice(0, 34));
   }
 
   const rels = listRelationships(book);

@@ -10,6 +10,7 @@ import {
   NODE_HALF_H,
   nodeBoxWidth,
 } from './graph-network.js';
+import { formatCharacterDisplayName } from '../domain/character-display.js';
 
 /**
  * @typedef {'characters'|'chars_chapters'|'all'} GraphMode
@@ -424,7 +425,7 @@ export function mountGraph(container, book, options) {
 
   const charItems = chars.map((c) => ({
     id: c.id,
-    label: c.name || 'Sin nombre',
+    label: formatCharacterDisplayName(c),
     kind: 'character',
   }));
   const chapterItems = chapters.map((c) => ({

@@ -20,4 +20,5 @@ export {
   renderClearWorkspaceModal,
   showEditorCommentBodyModal,
   showConfirmModal,
+  showCharacterRenameModal,
 } from './ui-modals.js';

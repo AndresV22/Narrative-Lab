@@ -405,3 +405,62 @@ export function showConfirmModal(app, opts) {
     host.querySelector('[data-cf-ok]')?.addEventListener('click', () => finish(true));
   });
 }
+
+/**
+ * Reemplazo global opcional al cambiar nombre/apellidos/apodos del personaje.
+ * @param {import('./app.js').App} app
+ * @param {import('../domain/character-rename-pairs.js').RenamePair[]} pairs
+ * @returns {Promise<'cancel' | { applyPairs: { old: string, new: string }[] }>}
+ */
+export function showCharacterRenameModal(app, pairs) {
+  return new Promise((resolve) => {
+    const host = app.els.modalHost;
+    host.innerHTML = `
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" data-cr-backdrop>
+        <div class="w-full max-w-lg rounded-xl border border-nl-border bg-nl-surface shadow-xl p-4 max-h-[min(90vh,32rem)] flex flex-col" data-cr-panel role="dialog" aria-modal="true">
+          <h2 class="text-sm font-semibold text-white mb-2">Cambios en el libro</h2>
+          <p class="text-xs text-nl-muted mb-3">Puedes reemplazar el texto anterior por el nuevo en todo el contenido del libro (capítulos, sinopsis, notas, etc.). Desmarca lo que no quieras tocar.</p>
+          <ul class="space-y-2 mb-4 overflow-y-auto nl-scroll text-sm flex-1 min-h-0 pr-1">
+            ${pairs
+              .map(
+                (p, i) => `
+              <li class="flex gap-2 items-start">
+                <input type="checkbox" id="cr-${i}" data-cr-i="${i}" checked class="mt-1 shrink-0" />
+                <label for="cr-${i}" class="text-slate-300 cursor-pointer">${escapeHtml(p.label)}</label>
+              </li>
+            `
+              )
+              .join('')}
+          </ul>
+          <div class="flex flex-wrap justify-end gap-2 shrink-0 pt-2 border-t border-nl-border">
+            <button type="button" data-cr-cancel class="px-3 py-1.5 rounded-lg border border-nl-border text-sm text-slate-300 hover:bg-nl-raised">Cancelar</button>
+            <button type="button" data-cr-skip class="px-3 py-1.5 rounded-lg border border-nl-border text-sm text-slate-300 hover:bg-nl-raised">Guardar sin reemplazar</button>
+            <button type="button" data-cr-ok class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm text-white">Aplicar seleccionados y guardar</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const backdrop = /** @type {HTMLElement|null} */ (host.querySelector('[data-cr-backdrop]'));
+    function finish(/** @type {'cancel' | { applyPairs: { old: string, new: string }[] }} */ result) {
+      removeDismiss();
+      host.innerHTML = '';
+      resolve(result);
+    }
+    const removeDismiss = attachModalDismiss(/** @type {HTMLElement} */ (backdrop), () => finish('cancel'));
+    backdrop?.addEventListener('click', (e) => {
+      if (e.target === backdrop) finish('cancel');
+    });
+    host.querySelector('[data-cr-panel]')?.addEventListener('click', (e) => e.stopPropagation());
+    host.querySelector('[data-cr-cancel]')?.addEventListener('click', () => finish('cancel'));
+    host.querySelector('[data-cr-skip]')?.addEventListener('click', () => finish({ applyPairs: [] }));
+    host.querySelector('[data-cr-ok]')?.addEventListener('click', () => {
+      /** @type {{ old: string, new: string }[]} */
+      const applyPairs = [];
+      pairs.forEach((p, i) => {
+        const cb = /** @type {HTMLInputElement|null} */ (host.querySelector(`[data-cr-i="${i}"]`));
+        if (cb?.checked) applyPairs.push({ old: p.old, new: p.new });
+      });
+      finish({ applyPairs });
+    });
+  });
+}

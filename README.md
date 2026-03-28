@@ -28,7 +28,14 @@ El resultado queda en **`dist/`**; despliega esa carpeta en cualquier hosting es
 ## Calidad de código
 
 - `npm run lint` — ESLint
-- `npm test` — Vitest (lógica pura / datos)
+- `npm test` — Vitest (una pasada)
+- `npm run test:watch` — Vitest en modo observación
+
+Los archivos de prueba siguen el patrón `assets/js/**/*.test.js` (entorno **jsdom** en `vite.config.js`).
+
+**Alcance actual (unit tests):** utilidades en `assets/js/core/`, modelos y workspace en `assets/js/domain/` (incluye preferencias locales, categorías de novela y roles de personaje), narrativa parcial (`export`, `export-helpers`, búsqueda, relaciones, análisis, grafo, estadísticas), y piezas del editor (`editor-helpers`, paginación visual). La **interfaz completa** (shell, vistas, IndexedDB en uso real) no está cubierta por tests unitarios; un **E2E** en navegador sería un paso opcional aparte.
+
+**Limitación:** la suite no sustituye pruebas manuales de **impresión / PDF** entre navegadores ni el aspecto exacto del maquetado en pantalla.
 
 ## Accesibilidad
 
@@ -36,12 +43,12 @@ Los modales usan foco atrapado, `aria-modal`, cierre con Escape y retorno de foc
 
 ## Interfaz: cabecera, barras laterales y paneles
 
-- **Barra superior**: marca, búsqueda global, estado de guardado, accesos a **Ajustes**, **Perfil de autor**, **Guardar snapshot** (con libro abierto) y botón **Panel** para mostrar u ocultar el panel derecho en pantallas grandes.
+- **Barra superior**: marca, búsqueda global, estado de guardado, accesos a **Ajustes**, **Perfil de autor**, **Guardar snapshot** (solo con libro abierto y fuera de **Ajustes** globales) y botón **Panel** para mostrar u ocultar el **panel derecho de progreso** en pantallas grandes (`lg+`).
 - **Barra lateral izquierda** (`aside` de navegación):
   - En **biblioteca**: inicio, nuevo libro, plantillas, lista de libros con miniatura de carátula, exportar/importar workspace, guía de escritura y ajustes. Puedes **contraerla** a iconos para ganar espacio.
   - Con **libro abierto**: navegación por secciones (ver listado abajo), volver a biblioteca, eliminar libro. Muestra avisos de copia de seguridad si hace tiempo que no registras una exportación.
 - **Panel central**: la vista activa (editor, listas, grafo, etc.).
-- **Panel derecho** (escritorio, `lg+`): **progreso** de palabras respecto a la meta, desglose por capítulo, acceso al **análisis**, **métricas en tiempo real** del fragmento que editas (párrafos, proporción de diálogo, repeticiones frecuentes) y **relaciones recientes**. En textos muy largos las métricas del editor se desactivan para mantener fluidez.
+- **Panel derecho** (escritorio, `lg+`): **progreso** de palabras respecto a la meta (solo **manuscrito**: prólogo, capítulos, escenas y epílogo; no cuenta sinopsis, contexto, reglas, extras, notas ni planificación anexa), desglose por capítulo, acceso al **análisis**, **métricas en tiempo real** del fragmento que editas (párrafos según bloques `p`/encabezados en el HTML, proporción de diálogo, repeticiones frecuentes) y **relaciones recientes**. El panel se **anima** al abrir/cerrar (ancho como la barra lateral) y **no se muestra** si no hay libro abierto o si la vista activa es **Ajustes** globales. En textos muy largos las métricas del editor se desactivan para mantener fluidez.
 
 ## Biblioteca y workspace
 
@@ -92,7 +99,7 @@ Agrupada en secciones:
 ### Versiones y exportación
 
 - **Snapshots** del libro (historial); creación manual desde la cabecera y **snapshots automáticos** configurables en **Ajustes** (intervalo en minutos o desactivado).
-- Exportación del libro: Markdown, TXT, PDF (vía impresión del navegador), DOCX, EPUB mínimo (JSZip).
+- Exportación del libro: Markdown, TXT, PDF (vía impresión del navegador), DOCX, EPUB mínimo (JSZip). La **impresión / PDF** y la exportación **DOCX / EPUB** tienen en cuenta el **tamaño de página** y los **márgenes en centímetros** guardados en preferencias (modo página del editor), además de la tipografía por defecto del editor donde aplica la conversión.
 
 ## Datos, copias de seguridad y ajustes
 
@@ -113,8 +120,14 @@ index.html
 vite.config.js
 tailwind.config.js
 assets/css/app.css
-assets/js/*.js
+assets/js/app.js
+assets/js/core/           (utilidades, tipos)
+assets/js/domain/         (modelos, preferencias, almacenamiento)
+assets/js/narrative/      (exportación, búsqueda, análisis, relaciones, …)
+assets/js/editor/         (editor enriquecido, paginación, fuentes)
+assets/js/ui/             (shell, vistas, modales)
 assets/js/ui/views/*.js   (vistas por dominio; reexportadas desde ui-views.js)
+assets/js/**/*.test.js    (pruebas Vitest)
 components/shell.js
 public/data/templates.json
 ```

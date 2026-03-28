@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml } from '../../core/utils.js';
+import { formatCharacterDisplayName } from '../../domain/character-display.js';
 import { formatHighlightSource, canNavigateHighlightSource } from '../../editor/highlight-source.js';
 import { editorCardWithHost } from '../../editor/editor.js';
 import {
@@ -229,7 +230,7 @@ export function renderHighlightEditor(book, h) {
   const charOptions = (book.characters || [])
     .map(
       (c) =>
-        `<option value="${escapeHtml(c.id)}" ${sel === c.id ? 'selected' : ''}>${escapeHtml(c.name || 'Sin nombre')}</option>`
+        `<option value="${escapeHtml(c.id)}" ${sel === c.id ? 'selected' : ''}>${escapeHtml(formatCharacterDisplayName(c))}</option>`
     )
     .join('');
   return `

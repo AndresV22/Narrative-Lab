@@ -3,6 +3,7 @@
  */
 
 import { escapeHtml, sortByOrder } from '../../core/utils.js';
+import { formatCharacterDisplayName } from '../../domain/character-display.js';
 import { formatDateTimeShort } from '../../core/date-format.js';
 import {
   listRelationships,
@@ -19,7 +20,7 @@ import { CHARACTER_LINK_ROLE_EDGE_COLORS } from '../../narrative/graph-network.j
 function entityLabel(book, kind, id) {
   if (kind === 'character') {
     const c = book.characters.find((x) => x.id === id);
-    return c?.name || id;
+    return c ? formatCharacterDisplayName(c) : id;
   }
   if (kind === 'chapter') {
     const c = book.chapters.find((x) => x.id === id);
@@ -73,14 +74,14 @@ export function renderGraphHost(book, app) {
       mode === m ? 'border-indigo-500 bg-indigo-500/15 text-indigo-200' : 'border-nl-border text-slate-300 hover:bg-nl-raised'
     }">${label}</button>`;
   const charsSorted = [...(book.characters || [])].sort((a, b) =>
-    (a.name || '').localeCompare(b.name || '', 'es')
+    formatCharacterDisplayName(a).localeCompare(formatCharacterDisplayName(b), 'es')
   );
   const rootOpts =
     `<option value="">— Personaje raíz (red ortogonal) —</option>` +
     charsSorted
       .map(
         (c) =>
-          `<option value="${escapeHtml(c.id)}"${rootId === c.id ? ' selected' : ''}>${escapeHtml(c.name || 'Sin nombre')}</option>`
+          `<option value="${escapeHtml(c.id)}"${rootId === c.id ? ' selected' : ''}>${escapeHtml(formatCharacterDisplayName(c))}</option>`
       )
       .join('');
   const legendItems = CHARACTER_LINK_ROLE_OPTIONS.map(
@@ -168,7 +169,7 @@ export function renderRelations(book, _app) {
   const chars = book.characters || [];
   const chapters = sortByOrder(book.chapters || [], 'order');
   const events = book.events || [];
-  const charOpts = chars.map((c) => `<option value="${c.id}">${escapeHtml(c.name || 'Sin nombre')}</option>`).join('');
+  const charOpts = chars.map((c) => `<option value="${c.id}">${escapeHtml(formatCharacterDisplayName(c))}</option>`).join('');
   const chOpts = chapters.map((c) => `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('');
   const evOpts = events.map((e) => `<option value="${e.id}">${escapeHtml(e.title || 'Evento')}</option>`).join('');
   const roleOpts = CHARACTER_LINK_ROLE_OPTIONS.map(

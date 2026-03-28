@@ -97,4 +97,23 @@ describe('normalizeBook via validateWorkspace', () => {
       expect(kb.columns[0].tasks[0].title).toBe('X');
     }
   });
+
+  it('normaliza personaje legacy sin campos nuevos', () => {
+    const r = validateWorkspace({
+      books: [
+        {
+          characters: [{ id: 'c1', name: 'Ana', role: 'secundario' }],
+        },
+      ],
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const ch = r.workspace.books[0].characters[0];
+      expect(ch.paternalSurname).toBe('');
+      expect(ch.maternalSurname).toBe('');
+      expect(ch.nicknames).toBe('');
+      expect(ch.likes).toBe('');
+      expect(ch.birthPlace).toBe('');
+    }
+  });
 });

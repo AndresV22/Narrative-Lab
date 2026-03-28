@@ -64,6 +64,7 @@ import {
 } from './domain/import-export-workspace.js';
 import { inferChapterIdForSceneHighlight } from './editor/highlight-source.js';
 import { clearKanbanTaskModal } from './ui/views/kanban.js';
+import { formatCharacterDisplayName } from './domain/character-display.js';
 
 /**
  * @typedef {Object} NavState
@@ -86,6 +87,7 @@ import { clearKanbanTaskModal } from './ui/views/kanban.js';
  * @property {string|null} [kanbanBoardId]
  * @property {string|null} [kanbanTaskId]
  * @property {'stats'|'comments'} [rightPanelMode] Contenido del panel derecho global
+ * @property {import('./domain/character-rename-pairs.js').CharacterIdentitySlice & { characterId: string } | null} [characterIdentitySnapshot] Copia al abrir la ficha (reemplazo global)
  */
 
 export class App {
@@ -113,6 +115,7 @@ export class App {
       kanbanBoardId: null,
       kanbanTaskId: null,
       rightPanelMode: 'stats',
+      characterIdentitySnapshot: null,
     };
     /** @type {ReturnType<typeof setInterval> | null} */
     this.autoSnapshotTimer = null;
@@ -642,7 +645,10 @@ export class App {
     }
     this.state.view = view;
     if (view !== 'timeline') this.state.timelineEventId = null;
-    if (view !== 'character') this.state.characterId = null;
+    if (view !== 'character') {
+      this.state.characterId = null;
+      this.state.characterIdentitySnapshot = null;
+    }
     if (view !== 'note') this.state.noteId = null;
     if (view === 'chapters') {
       this.state.chapterId = null;
@@ -673,6 +679,7 @@ export class App {
     this.state.guideArticleId = articleId;
     this.state.view = 'writingGuide';
     this.state.characterId = null;
+    this.state.characterIdentitySnapshot = null;
     this.state.noteId = null;
     this.state.timelineEventId = null;
     this.state.chapterId = null;
@@ -775,6 +782,8 @@ export class App {
     this.state.chapterId = null;
     this.state.sceneId = null;
     this.state.characterId = null;
+    this.state.characterIdentitySnapshot = null;
+    this.state.characterIdentitySnapshot = null;
     this.state.noteId = null;
     this.state.worldRuleId = null;
     this.state.highlightId = null;
@@ -852,14 +861,17 @@ export class App {
     if (!book) return;
     const ch = book.characters.find((c) => c.id === characterId);
     if (!ch) return;
-    if (!confirm(`¿Eliminar el personaje «${ch.name || 'Sin nombre'}»?`)) return;
+    if (!confirm(`¿Eliminar el personaje «${formatCharacterDisplayName(ch)}»?`)) return;
     book.characters = book.characters.filter((c) => c.id !== characterId);
     book.relationships = (book.relationships || []).filter((r) => {
       if (r.from.kind === 'character' && r.from.id === characterId) return false;
       if (r.to.kind === 'character' && r.to.id === characterId) return false;
       return true;
     });
-    if (this.state.characterId === characterId) this.state.characterId = null;
+    if (this.state.characterId === characterId) {
+      this.state.characterId = null;
+      this.state.characterIdentitySnapshot = null;
+    }
     this.persist();
     this.refresh();
   }

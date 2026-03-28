@@ -31,6 +31,13 @@ const EDITOR_MARGIN_MAX_CM = 5;
 
 /** @type {boolean} */
 let legacyEditorMarginsMigrated = false;
+
+/**
+ * Solo para pruebas: reinicia la migración px→cm (Vitest no siempre recarga el módulo tras `vi.resetModules()`).
+ */
+export function resetLegacyEditorMarginsMigrationForTests() {
+  legacyEditorMarginsMigrated = false;
+}
 const KEY_SIDEBAR_COLLAPSED = 'nl_sidebar_collapsed';
 
 /** @typedef {'boundary'|'debounce'} ProgressMode */

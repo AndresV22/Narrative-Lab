@@ -29,6 +29,14 @@
  * @typedef {Object} Character
  * @property {string} id
  * @property {string} name
+ * @property {string} paternalSurname
+ * @property {string} maternalSurname
+ * @property {string} nicknames Apodos separados por coma en UI
+ * @property {string} likes
+ * @property {string} dislikes
+ * @property {string} birthPlace
+ * @property {string} birthDate
+ * @property {string} deathDate
  * @property {CharacterRole} role
  * @property {string} age
  * @property {string} description

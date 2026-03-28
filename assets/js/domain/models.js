@@ -5,7 +5,7 @@
 import { normalizeCharacterRole } from './character-roles.js';
 import { uuid, deepClone, stripHtml, sortByOrder } from '../core/utils.js';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /** @typedef {{ kind: string, id: string }} EntityRef */
 
@@ -44,6 +44,14 @@ export function createCharacter(overrides = {}) {
   return {
     id: uuid(),
     name: '',
+    paternalSurname: '',
+    maternalSurname: '',
+    nicknames: '',
+    likes: '',
+    dislikes: '',
+    birthPlace: '',
+    birthDate: '',
+    deathDate: '',
     role: 'secundario',
     age: '',
     description: '',
@@ -495,19 +503,32 @@ function normalizeScene(raw) {
 /**
  * @param {unknown} raw
  */
+function str(x, key) {
+  const v = x[key];
+  return typeof v === 'string' ? v : '';
+}
+
 function normalizeCharacter(raw) {
   const x = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
   return createCharacter({
     id: typeof x.id === 'string' ? x.id : uuid(),
-    name: typeof x.name === 'string' ? x.name : '',
+    name: str(x, 'name'),
+    paternalSurname: str(x, 'paternalSurname'),
+    maternalSurname: str(x, 'maternalSurname'),
+    nicknames: str(x, 'nicknames'),
+    likes: str(x, 'likes'),
+    dislikes: str(x, 'dislikes'),
+    birthPlace: str(x, 'birthPlace'),
+    birthDate: str(x, 'birthDate'),
+    deathDate: str(x, 'deathDate'),
     role: normalizeCharacterRole(typeof x.role === 'string' ? x.role : ''),
     age: typeof x.age === 'string' ? x.age : String(x.age ?? ''),
-    description: typeof x.description === 'string' ? x.description : '',
-    personality: typeof x.personality === 'string' ? x.personality : '',
-    goals: typeof x.goals === 'string' ? x.goals : '',
-    conflicts: typeof x.conflicts === 'string' ? x.conflicts : '',
-    narrativeArc: typeof x.narrativeArc === 'string' ? x.narrativeArc : '',
-    imageDataUrl: typeof x.imageDataUrl === 'string' ? x.imageDataUrl : '',
+    description: str(x, 'description'),
+    personality: str(x, 'personality'),
+    goals: str(x, 'goals'),
+    conflicts: str(x, 'conflicts'),
+    narrativeArc: str(x, 'narrativeArc'),
+    imageDataUrl: str(x, 'imageDataUrl'),
   });
 }
 

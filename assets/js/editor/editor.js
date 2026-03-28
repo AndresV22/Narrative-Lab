@@ -63,6 +63,37 @@ const STOP = new Set([
 ]);
 
 /**
+ * Texto por bloque a partir del HTML del editor. `stripHtml` junta &lt;p&gt; sin saltos, así que no sirve para contar párrafos.
+ * @param {string} html
+ * @returns {string[]}
+ */
+function blockTextsFromEditorHtml(html) {
+  if (!html || typeof html !== 'string') return [];
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  /** @type {string[]} */
+  const out = [];
+  wrap.querySelectorAll('p').forEach((el) => {
+    const t = el.textContent?.replace(/\s+/g, ' ').trim();
+    if (t) out.push(t);
+  });
+  wrap.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((el) => {
+    const t = el.textContent?.replace(/\s+/g, ' ').trim();
+    if (t) out.push(t);
+  });
+  wrap.querySelectorAll('li').forEach((li) => {
+    if (li.querySelector('p')) return;
+    const t = li.textContent?.replace(/\s+/g, ' ').trim();
+    if (t) out.push(t);
+  });
+  if (out.length === 0) {
+    const t = stripHtml(html).replace(/\s+/g, ' ').trim();
+    if (t) out.push(t);
+  }
+  return out;
+}
+
+/**
  * @param {string} html
  * @returns {EditorRealtimeMetrics}
  */
@@ -87,10 +118,7 @@ export function computeEditorRealtimeMetrics(html) {
     };
   }
 
-  const paragraphs = text
-    .split(/\n\s*\n+/)
-    .map((p) => p.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
+  const paragraphs = blockTextsFromEditorHtml(html || '');
   const paraWords = paragraphs.map((p) => p.split(/\s+/).filter(Boolean).length);
   const maxParagraphWords = paraWords.length ? Math.max(...paraWords) : 0;
   const avgParagraphWords = paraWords.length ? Math.round(paraWords.reduce((a, b) => a + b, 0) / paraWords.length) : 0;
@@ -122,7 +150,7 @@ export function computeEditorRealtimeMetrics(html) {
     topRepeats: top5,
     avgParagraphWords,
     maxParagraphWords,
-    paragraphCount: paragraphs.length || (norm ? 1 : 0),
+    paragraphCount: paragraphs.length,
     dialogueRatio,
   };
 }

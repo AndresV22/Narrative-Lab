@@ -3,6 +3,7 @@
  */
 
 import { computeWordStats } from './export.js';
+import { formatCharacterDisplayName } from '../domain/character-display.js';
 import { listRelationships } from './relations.js';
 
 /** Palabras por minuto para tiempo de lectura estimado */
@@ -48,7 +49,7 @@ export function getCharacterUsage(book) {
   for (const c of book.characters || []) {
     map.set(c.id, {
       characterId: c.id,
-      name: c.name || 'Sin nombre',
+      name: formatCharacterDisplayName(c),
       chapterIds: [],
       sceneIds: [],
     });

@@ -15,7 +15,7 @@ import {
   setEditorCommentsPanelOpen,
 } from '../domain/prefs.js';
 import { createSnapshot } from '../domain/models.js';
-import { computeWordStats } from '../narrative/export.js';
+import { computeProgressWordStats } from '../narrative/export.js';
 import { listRelationships } from '../narrative/relations.js';
 import { countWarningIssues, getBookStats } from '../narrative/analysis.js';
 import { formatDateTimeShort } from '../core/date-format.js';
@@ -450,10 +450,12 @@ export function renderRightPanel(app) {
     return;
   }
 
-  const stats = computeWordStats(book);
+  const stats = computeProgressWordStats(book);
   const bstats = getBookStats(book);
   const pct = stats.goal > 0 ? Math.min(100, Math.round((stats.total / stats.goal) * 100)) : 0;
   const pagesEst = stats.total > 0 ? Math.max(1, Math.ceil(stats.total / 300)) : 0;
+  const readingMinutesProgress =
+    stats.total > 0 ? Math.max(1, Math.round(stats.total / 200)) : 0;
 
   const rels = listRelationships(book).slice(0, 12);
 
@@ -518,7 +520,7 @@ export function renderRightPanel(app) {
         <div><dt class="text-nl-muted">Capítulos</dt><dd class="text-slate-200 tabular-nums">${bstats.chapterCount}</dd></div>
         <div><dt class="text-nl-muted">Escenas</dt><dd class="text-slate-200 tabular-nums">${bstats.sceneCount}</dd></div>
         <div><dt class="text-nl-muted">Personajes (activos)</dt><dd class="text-slate-200 tabular-nums">${bstats.activeCharacters}/${bstats.characterCount}</dd></div>
-        <div><dt class="text-nl-muted">Lectura (~200 p/min)</dt><dd class="text-slate-200 tabular-nums">~${bstats.readingMinutes} min</dd></div>
+        <div><dt class="text-nl-muted">Lectura (~200 p/min)</dt><dd class="text-slate-200 tabular-nums">~${readingMinutesProgress} min</dd></div>
       </dl>
       ${analysisLink}
       ${editorBlock}
