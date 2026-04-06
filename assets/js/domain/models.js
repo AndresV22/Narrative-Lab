@@ -5,7 +5,7 @@
 import { normalizeCharacterRole } from './character-roles.js';
 import { uuid, deepClone, stripHtml, sortByOrder } from '../core/utils.js';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /** @typedef {{ kind: string, id: string }} EntityRef */
 
@@ -127,6 +127,50 @@ export function createAct(overrides = {}) {
     description: '',
     order: 0,
     chapterIds: [],
+    ...overrides,
+  };
+}
+
+/**
+ * @returns {import('../core/types.js').PlotMilestone}
+ */
+export function createPlotMilestone(overrides = {}) {
+  return {
+    id: uuid(),
+    title: '',
+    order: 0,
+    completed: false,
+    ...overrides,
+  };
+}
+
+/**
+ * @returns {import('../core/types.js').Plot}
+ */
+export function createPlot(overrides = {}) {
+  return {
+    id: uuid(),
+    title: 'Nueva trama',
+    description: '',
+    plotKind: 'secundaria',
+    narrativeGoal: '',
+    mainConflict: '',
+    status: 'no_iniciada',
+    progressPercent: 0,
+    milestones: [],
+    ...overrides,
+  };
+}
+
+/**
+ * @returns {import('../core/types.js').Place}
+ */
+export function createPlace(overrides = {}) {
+  return {
+    id: uuid(),
+    name: '',
+    description: '',
+    placeKind: 'otro',
     ...overrides,
   };
 }
@@ -277,6 +321,8 @@ export function createEmptyBook(overrides = {}) {
     snapshots: [],
     notes: [],
     kanbanBoards: [],
+    plots: [],
+    places: [],
     ...overrides,
   };
 }
@@ -407,6 +453,8 @@ export function normalizeBook(raw) {
     snapshots: Array.isArray(b.snapshots) ? b.snapshots.map(normalizeSnapshot) : [],
     notes: Array.isArray(b.notes) ? b.notes.map(normalizeNote) : [],
     kanbanBoards: Array.isArray(b.kanbanBoards) ? b.kanbanBoards.map(normalizeKanbanBoard) : [],
+    plots: Array.isArray(b.plots) ? b.plots.map(normalizePlot) : [],
+    places: Array.isArray(b.places) ? b.places.map(normalizePlace) : [],
   });
   return book;
 }
@@ -615,6 +663,73 @@ function normalizeNote(raw) {
     id: typeof n.id === 'string' ? n.id : uuid(),
     title: typeof n.title === 'string' ? n.title : 'Nota',
     content: typeof n.content === 'string' ? n.content : '',
+  });
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {import('../core/types.js').PlotMilestone}
+ */
+function normalizePlotMilestone(raw) {
+  const m = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
+  return createPlotMilestone({
+    id: typeof m.id === 'string' ? m.id : uuid(),
+    title: typeof m.title === 'string' ? m.title : '',
+    order: typeof m.order === 'number' && !Number.isNaN(m.order) ? m.order : 0,
+    completed: m.completed === true,
+  });
+}
+
+const PLOT_KINDS = new Set(['principal', 'secundaria', 'subtrama']);
+const PLOT_STATUSES = new Set(['no_iniciada', 'en_desarrollo', 'resuelta']);
+const PLACE_KINDS = new Set(['ciudad', 'pueblo', 'pais', 'region', 'otro']);
+
+/**
+ * @param {unknown} raw
+ * @returns {import('../core/types.js').Plot}
+ */
+function normalizePlot(raw) {
+  const p = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
+  const plotKind =
+    typeof p.plotKind === 'string' && PLOT_KINDS.has(p.plotKind)
+      ? /** @type {'principal'|'secundaria'|'subtrama'} */ (p.plotKind)
+      : 'secundaria';
+  const status =
+    typeof p.status === 'string' && PLOT_STATUSES.has(p.status)
+      ? /** @type {'no_iniciada'|'en_desarrollo'|'resuelta'} */ (p.status)
+      : 'no_iniciada';
+  let progressPercent = typeof p.progressPercent === 'number' && !Number.isNaN(p.progressPercent) ? p.progressPercent : 0;
+  progressPercent = Math.max(0, Math.min(100, Math.round(progressPercent)));
+  const milestones = Array.isArray(p.milestones) ? p.milestones.map(normalizePlotMilestone) : [];
+  milestones.sort((a, b) => a.order - b.order);
+  return createPlot({
+    id: typeof p.id === 'string' ? p.id : uuid(),
+    title: typeof p.title === 'string' ? p.title : 'Nueva trama',
+    description: typeof p.description === 'string' ? p.description : '',
+    plotKind,
+    narrativeGoal: typeof p.narrativeGoal === 'string' ? p.narrativeGoal : '',
+    mainConflict: typeof p.mainConflict === 'string' ? p.mainConflict : '',
+    status,
+    progressPercent,
+    milestones,
+  });
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {import('../core/types.js').Place}
+ */
+function normalizePlace(raw) {
+  const pl = typeof raw === 'object' && raw !== null ? /** @type {Record<string, unknown>} */ (raw) : {};
+  const placeKind =
+    typeof pl.placeKind === 'string' && PLACE_KINDS.has(pl.placeKind)
+      ? /** @type {'ciudad'|'pueblo'|'pais'|'region'|'otro'} */ (pl.placeKind)
+      : 'otro';
+  return createPlace({
+    id: typeof pl.id === 'string' ? pl.id : uuid(),
+    name: typeof pl.name === 'string' ? pl.name : '',
+    description: typeof pl.description === 'string' ? pl.description : '',
+    placeKind,
   });
 }
 

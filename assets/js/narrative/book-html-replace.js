@@ -110,6 +110,19 @@ export function applyReplacementsToBook(book, pairs) {
     note.title = run(note.title || '');
     note.content = run(note.content || '');
   }
+  for (const p of book.plots || []) {
+    p.title = run(p.title || '');
+    p.narrativeGoal = run(p.narrativeGoal || '');
+    p.mainConflict = run(p.mainConflict || '');
+    p.description = run(p.description || '');
+    for (const m of p.milestones || []) {
+      m.title = run(m.title || '');
+    }
+  }
+  for (const pl of book.places || []) {
+    pl.name = run(pl.name || '');
+    pl.description = run(pl.description || '');
+  }
   for (const ch of book.chapters || []) {
     ch.title = run(ch.title || '');
     ch.content = run(ch.content || '');

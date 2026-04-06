@@ -4,6 +4,8 @@
 
 import { escapeHtml, sortByOrder } from '../../core/utils.js';
 import { editorCardWithHost } from '../../editor/editor.js';
+import { listRelationships } from '../../narrative/relations.js';
+import { formatCharacterDisplayName } from '../../domain/character-display.js';
 
 /**
  * @param {import('../../core/types.js').Book} book
@@ -36,6 +38,38 @@ export function renderTimelineMerged(book, app) {
         .join('')
     : '<p class="text-nl-muted text-sm">Sin eventos. Pulsa «+ Evento».</p>';
 
+  const charEvRels = selected
+    ? listRelationships(book).filter(
+        (r) =>
+          r.type === 'character_event' &&
+          r.from.kind === 'character' &&
+          r.to.kind === 'event' &&
+          r.to.id === selected.id
+      )
+    : [];
+  const charOpts =
+    (book.characters || [])
+      .map(
+        (c) =>
+          `<option value="${escapeHtml(c.id)}">${escapeHtml(formatCharacterDisplayName(c))}</option>`
+      )
+      .join('') || '';
+  const linkedChars =
+    selected && charEvRels.length
+      ? `<ul class="space-y-1 mb-2">
+          ${charEvRels
+            .map((r) => {
+              const c = book.characters?.find((x) => x.id === r.from.id);
+              const name = c ? formatCharacterDisplayName(c) : r.from.id;
+              return `<li class="flex items-center justify-between gap-2 text-xs text-slate-300">
+                <span>${escapeHtml(name)}</span>
+                <button type="button" data-ev-unlink-char="${r.id}" class="text-red-400 hover:text-red-300 shrink-0">Quitar</button>
+              </li>`;
+            })
+            .join('')}
+        </ul>`
+      : '<p class="text-xs text-nl-muted mb-2">Ningún personaje vinculado.</p>';
+
   const editor =
     selected
       ? `
@@ -51,6 +85,19 @@ export function renderTimelineMerged(book, app) {
         </label>
       </div>
       <textarea data-ev-body="${selected.id}" rows="5" class="w-full text-sm bg-nl-bg border border-nl-border rounded px-2 py-2 text-slate-200">${escapeHtml(selected.content)}</textarea>
+      <div class="pt-2 border-t border-nl-border space-y-2">
+        <h4 class="text-xs font-medium text-slate-400 uppercase tracking-wide">Personajes vinculados</h4>
+        ${linkedChars}
+        <div class="flex flex-wrap gap-2 items-end">
+          <label class="text-[10px] text-nl-muted flex flex-col gap-0.5 min-w-[12rem] flex-1">Añadir personaje
+            <select data-ev-pick-char="${selected.id}" class="bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm text-slate-200">
+              <option value="">— Elegir —</option>
+              ${charOpts}
+            </select>
+          </label>
+          <button type="button" data-ev-link-char="${selected.id}" class="px-3 py-1.5 rounded-lg bg-indigo-600/90 text-white text-xs hover:bg-indigo-500">Vincular</button>
+        </div>
+      </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" data-save-ev="${selected.id}" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm">Guardar evento</button>
         <button type="button" data-del-ev="${selected.id}" class="px-4 py-2 rounded-lg border border-red-500/30 text-red-300 text-sm hover:bg-red-500/10">Eliminar</button>

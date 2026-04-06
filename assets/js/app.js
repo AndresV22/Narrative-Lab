@@ -107,6 +107,14 @@ function editorFragmentTitleForExport(book, kind, id = null, chapterId = null) {
     const ex = book.extraBlocks?.find((x) => x.id === id);
     return (ex?.title && String(ex.title).trim()) || 'Extra';
   }
+  if (kind === 'plot' && id) {
+    const p = book.plots?.find((x) => x.id === id);
+    return (p?.title && String(p.title).trim()) || 'Trama';
+  }
+  if (kind === 'place' && id) {
+    const pl = book.places?.find((x) => x.id === id);
+    return (pl?.name && String(pl.name).trim()) || 'Lugar';
+  }
   return 'Fragmento';
 }
 
@@ -118,6 +126,8 @@ function editorFragmentTitleForExport(book, kind, id = null, chapterId = null) {
  * @property {string|null} [sceneId]
  * @property {string|null} [characterId]
  * @property {string|null} [noteId]
+ * @property {string|null} [plotId]
+ * @property {string|null} [placeId]
  * @property {string|null} [extraId]
  * @property {string|null} [worldRuleId]
  * @property {boolean} afterNewBookMeta
@@ -147,6 +157,8 @@ export class App {
       sceneId: null,
       characterId: null,
       noteId: null,
+      plotId: null,
+      placeId: null,
       extraId: null,
       worldRuleId: null,
       afterNewBookMeta: false,
@@ -285,6 +297,12 @@ export class App {
     } else if (kind === 'extra' && id) {
       const ex = book.extraBlocks?.find((x) => x.id === id);
       initial = ex?.content || '';
+    } else if (kind === 'plot' && id) {
+      const p = book.plots?.find((x) => x.id === id);
+      initial = p?.description || '';
+    } else if (kind === 'place' && id) {
+      const pl = book.places?.find((x) => x.id === id);
+      initial = pl?.description || '';
     }
 
     this.editor = new RichEditor(el, {
@@ -566,6 +584,12 @@ export class App {
     } else if (kind === 'note' && id) {
       const n = book.notes.find((x) => x.id === id);
       if (n) n.content = html;
+    } else if (kind === 'plot' && id) {
+      const p = book.plots?.find((x) => x.id === id);
+      if (p) p.description = html;
+    } else if (kind === 'place' && id) {
+      const pl = book.places?.find((x) => x.id === id);
+      if (pl) pl.description = html;
     }
     this.persist();
   }
@@ -664,6 +688,16 @@ export class App {
     }
     if (kind === 'extra' && h.sourceId) {
       this.openExtraEditor(h.sourceId);
+      return;
+    }
+    if (kind === 'plot' && h.sourceId) {
+      this.state.plotId = h.sourceId;
+      this.setView('plot');
+      return;
+    }
+    if (kind === 'place' && h.sourceId) {
+      this.state.placeId = h.sourceId;
+      this.setView('place');
     }
   }
 
@@ -687,6 +721,8 @@ export class App {
     this.state.actId = null;
     this.state.guideArticleId = null;
     this.state.timelineEventId = null;
+    this.state.plotId = null;
+    this.state.placeId = null;
     this.state.kanbanBoardId = null;
     this.state.kanbanTaskId = null;
     clearKanbanTaskModal(this);
@@ -716,6 +752,8 @@ export class App {
       this.state.characterIdentitySnapshot = null;
     }
     if (view !== 'note') this.state.noteId = null;
+    if (view !== 'plot') this.state.plotId = null;
+    if (view !== 'place') this.state.placeId = null;
     if (view === 'chapters') {
       this.state.chapterId = null;
       this.state.sceneId = null;
@@ -747,6 +785,8 @@ export class App {
     this.state.characterId = null;
     this.state.characterIdentitySnapshot = null;
     this.state.noteId = null;
+    this.state.plotId = null;
+    this.state.placeId = null;
     this.state.timelineEventId = null;
     this.state.chapterId = null;
     this.state.sceneId = null;
@@ -851,6 +891,8 @@ export class App {
     this.state.characterIdentitySnapshot = null;
     this.state.characterIdentitySnapshot = null;
     this.state.noteId = null;
+    this.state.plotId = null;
+    this.state.placeId = null;
     this.state.worldRuleId = null;
     this.state.highlightId = null;
     this.state.actId = null;
@@ -971,13 +1013,11 @@ export class App {
     if (!ok) return;
     book.events = (book.events || []).filter((e) => e.id !== eventId);
     if (this.state.timelineEventId === eventId) this.state.timelineEventId = null;
-    book.relationships = (book.relationships || []).filter(
-      (r) =>
-        !(
-          r.type === 'event_event' &&
-          ((r.from.kind === 'event' && r.from.id === eventId) || (r.to.kind === 'event' && r.to.id === eventId))
-        )
-    );
+    book.relationships = (book.relationships || []).filter((r) => {
+      if (r.from.kind === 'event' && r.from.id === eventId) return false;
+      if (r.to.kind === 'event' && r.to.id === eventId) return false;
+      return true;
+    });
     this.persist();
     this.refresh();
   }
@@ -997,6 +1037,58 @@ export class App {
     if (!ok) return;
     book.notes = book.notes.filter((n) => n.id !== noteId);
     if (this.state.noteId === noteId) this.state.noteId = null;
+    this.persist();
+    this.refresh();
+  }
+
+  /**
+   * @param {string} plotId
+   */
+  async deletePlotById(plotId) {
+    const book = this.getCurrentBook();
+    if (!book) return;
+    const p = book.plots?.find((x) => x.id === plotId);
+    if (!p) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar trama',
+      message: `¿Eliminar la trama «${p.title || 'Sin título'}»? Se quitarán sus vínculos en Relaciones.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+    book.plots = (book.plots || []).filter((x) => x.id !== plotId);
+    book.relationships = (book.relationships || []).filter((r) => {
+      if (r.from.kind === 'plot' && r.from.id === plotId) return false;
+      if (r.to.kind === 'plot' && r.to.id === plotId) return false;
+      return true;
+    });
+    if (this.state.plotId === plotId) this.state.plotId = null;
+    this.persist();
+    this.refresh();
+  }
+
+  /**
+   * @param {string} placeId
+   */
+  async deletePlaceById(placeId) {
+    const book = this.getCurrentBook();
+    if (!book) return;
+    const pl = book.places?.find((x) => x.id === placeId);
+    if (!pl) return;
+    const ok = await showConfirmModal(this, {
+      title: 'Eliminar lugar',
+      message: `¿Eliminar el lugar «${pl.name || 'Sin nombre'}»? Se quitarán sus vínculos en Relaciones.`,
+      confirmLabel: 'Eliminar',
+      danger: true,
+    });
+    if (!ok) return;
+    book.places = (book.places || []).filter((x) => x.id !== placeId);
+    book.relationships = (book.relationships || []).filter((r) => {
+      if (r.from.kind === 'place' && r.from.id === placeId) return false;
+      if (r.to.kind === 'place' && r.to.id === placeId) return false;
+      return true;
+    });
+    if (this.state.placeId === placeId) this.state.placeId = null;
     this.persist();
     this.refresh();
   }
@@ -1104,6 +1196,8 @@ export class App {
       sceneId: null,
       characterId: null,
       noteId: null,
+      plotId: null,
+      placeId: null,
       extraId: null,
       worldRuleId: null,
       afterNewBookMeta: false,

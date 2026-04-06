@@ -164,6 +164,18 @@ export function detectNarrativeIssues(book) {
     if (r.type === 'event_event') {
       if (r.from.kind === 'event') eventConnected.add(r.from.id);
       if (r.to.kind === 'event') eventConnected.add(r.to.id);
+      continue;
+    }
+    if (r.type === 'character_event' && r.to.kind === 'event') {
+      eventConnected.add(r.to.id);
+      continue;
+    }
+    if (r.type === 'plot_event' && r.to.kind === 'event') {
+      eventConnected.add(r.to.id);
+      continue;
+    }
+    if (r.type === 'place_event' && r.to.kind === 'event') {
+      eventConnected.add(r.to.id);
     }
   }
   for (const id of eventIds) {
@@ -172,12 +184,83 @@ export function detectNarrativeIssues(book) {
       out.push({
         severity: 'info',
         code: 'event_isolated',
-        message: `Evento «${ev?.title || 'Sin título'}» sin conexiones con otros eventos`,
+        message: `Evento «${ev?.title || 'Sin título'}» sin vínculos en Relaciones (con otros eventos, personajes, tramas o lugares)`,
         eventId: id,
       });
     }
   }
 
+  out.push(...getPlotHealthIssues(book));
+
+  return out;
+}
+
+/**
+ * Salud de tramas: heurísticas sobre campos y relaciones (sin duplicar lógica de vínculos).
+ * @param {import('../core/types.js').Book} book
+ * @returns {import('../core/types.js').NarrativeIssue[]}
+ */
+export function getPlotHealthIssues(book) {
+  /** @type {import('../core/types.js').NarrativeIssue[]} */
+  const out = [];
+  const rels = listRelationships(book);
+  for (const plot of book.plots || []) {
+    const title = String(plot.title || '').trim() || 'Sin título';
+    const plotChapters = rels.filter(
+      (r) => r.type === 'plot_chapter' && r.from.kind === 'plot' && r.from.id === plot.id
+    ).length;
+    const plotEvents = rels.filter(
+      (r) => r.type === 'plot_event' && r.from.kind === 'plot' && r.from.id === plot.id
+    ).length;
+    const plotChars = rels.filter(
+      (r) => r.type === 'plot_character' && r.from.kind === 'plot' && r.from.id === plot.id
+    ).length;
+    const hasGoal = String(plot.narrativeGoal || '').trim().length > 0;
+    const hasConflict = String(plot.mainConflict || '').trim().length > 0;
+    const milestonesDone = (plot.milestones || []).filter((m) => m.completed).length;
+    const milestonesTotal = (plot.milestones || []).length;
+
+    if (plot.plotKind === 'principal' && plotChapters < 2) {
+      out.push({
+        severity: 'info',
+        code: 'plot_few_chapters',
+        message: `Trama «${title}» (principal): enlaza al menos dos capítulos en Relaciones para anclarla en la obra.`,
+        plotId: plot.id,
+      });
+    }
+    if (!hasGoal && !hasConflict && plot.status === 'en_desarrollo') {
+      out.push({
+        severity: 'info',
+        code: 'plot_weak_narrative',
+        message: `Trama «${title}»: añade objetivo o conflicto para orientar el arco.`,
+        plotId: plot.id,
+      });
+    }
+    if (plot.status === 'resuelta' && milestonesTotal > 0 && milestonesDone === 0) {
+      out.push({
+        severity: 'info',
+        code: 'plot_resolved_no_milestones',
+        message: `Trama «${title}» marcada como resuelta pero ningún hito completado.`,
+        plotId: plot.id,
+      });
+    }
+    if (plot.status === 'no_iniciada' && (plotChars > 0 || plotEvents > 0 || plotChapters > 0)) {
+      out.push({
+        severity: 'info',
+        code: 'plot_status_mismatch',
+        message: `Trama «${title}» figura como no iniciada pero ya tiene vínculos; revisa el estado.`,
+        plotId: plot.id,
+      });
+    }
+    if (!hasGoal && !hasConflict && plotChapters === 0 && plotEvents === 0 && plotChars === 0) {
+      out.push({
+        severity: 'info',
+        code: 'plot_unlinked',
+        message: `Trama «${title}» sin relaciones ni texto de objetivo/conflicto; conéctala en Relaciones o rellena la narrativa.`,
+        plotId: plot.id,
+      });
+    }
+  }
   return out;
 }
 

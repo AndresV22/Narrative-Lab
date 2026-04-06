@@ -249,6 +249,195 @@ export function linkEventToEvent(book, eventA, eventB, opts = {}) {
 /**
  * @param {import('../core/types.js').Book} book
  * @param {string} characterId
+ * @param {string} eventId
+ * @param {{ description?: string }} [opts]
+ */
+export function linkCharacterToEvent(book, characterId, eventId, opts = {}) {
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'character_event' &&
+      r.from.kind === 'character' &&
+      r.from.id === characterId &&
+      r.to.kind === 'event' &&
+      r.to.id === eventId
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'character_event',
+      { kind: 'character', id: characterId },
+      { kind: 'event', id: eventId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
+    )
+  );
+}
+
+/**
+ * @param {import('../core/types.js').Book} book
+ * @param {string} plotId
+ * @param {string} characterId
+ * @param {{ description?: string }} [opts]
+ */
+export function linkPlotToCharacter(book, plotId, characterId, opts = {}) {
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'plot_character' &&
+      r.from.kind === 'plot' &&
+      r.from.id === plotId &&
+      r.to.kind === 'character' &&
+      r.to.id === characterId
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'plot_character',
+      { kind: 'plot', id: plotId },
+      { kind: 'character', id: characterId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
+    )
+  );
+}
+
+/**
+ * @param {import('../core/types.js').Book} book
+ * @param {string} plotId
+ * @param {string} eventId
+ * @param {{ description?: string }} [opts]
+ */
+export function linkPlotToEvent(book, plotId, eventId, opts = {}) {
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'plot_event' &&
+      r.from.kind === 'plot' &&
+      r.from.id === plotId &&
+      r.to.kind === 'event' &&
+      r.to.id === eventId
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'plot_event',
+      { kind: 'plot', id: plotId },
+      { kind: 'event', id: eventId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
+    )
+  );
+}
+
+/**
+ * @param {import('../core/types.js').Book} book
+ * @param {string} plotId
+ * @param {string} chapterId
+ * @param {{ description?: string }} [opts]
+ */
+export function linkPlotToChapter(book, plotId, chapterId, opts = {}) {
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'plot_chapter' &&
+      r.from.kind === 'plot' &&
+      r.from.id === plotId &&
+      r.to.kind === 'chapter' &&
+      r.to.id === chapterId
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'plot_chapter',
+      { kind: 'plot', id: plotId },
+      { kind: 'chapter', id: chapterId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
+    )
+  );
+}
+
+/**
+ * @param {import('../core/types.js').Book} book
+ * @param {string} placeId
+ * @param {string} characterId
+ * @param {{ description?: string }} [opts]
+ */
+export function linkPlaceToCharacter(book, placeId, characterId, opts = {}) {
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'place_character' &&
+      r.from.kind === 'place' &&
+      r.from.id === placeId &&
+      r.to.kind === 'character' &&
+      r.to.id === characterId
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'place_character',
+      { kind: 'place', id: placeId },
+      { kind: 'character', id: characterId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
+    )
+  );
+}
+
+/**
+ * @param {import('../core/types.js').Book} book
+ * @param {string} placeId
+ * @param {string} plotId
+ * @param {{ description?: string }} [opts]
+ */
+export function linkPlaceToPlot(book, placeId, plotId, opts = {}) {
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'place_plot' &&
+      r.from.kind === 'place' &&
+      r.from.id === placeId &&
+      r.to.kind === 'plot' &&
+      r.to.id === plotId
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'place_plot',
+      { kind: 'place', id: placeId },
+      { kind: 'plot', id: plotId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
+    )
+  );
+}
+
+/**
+ * @param {import('../core/types.js').Book} book
+ * @param {string} placeId
+ * @param {string} eventId
+ * @param {{ description?: string }} [opts]
+ */
+export function linkPlaceToEvent(book, placeId, eventId, opts = {}) {
+  const exists = listRelationships(book).some(
+    (r) =>
+      r.type === 'place_event' &&
+      r.from.kind === 'place' &&
+      r.from.id === placeId &&
+      r.to.kind === 'event' &&
+      r.to.id === eventId
+  );
+  if (exists) return;
+  addRelationship(
+    book,
+    createRelationship(
+      'place_event',
+      { kind: 'place', id: placeId },
+      { kind: 'event', id: eventId },
+      { description: typeof opts.description === 'string' ? opts.description : '' }
+    )
+  );
+}
+
+/**
+ * @param {import('../core/types.js').Book} book
+ * @param {string} characterId
  * @returns {{ chapterId: string, title: string }[]}
  */
 export function chaptersForCharacter(book, characterId) {

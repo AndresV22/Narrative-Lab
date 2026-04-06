@@ -87,7 +87,39 @@
  */
 
 /**
- * @typedef {'character_chapter'|'character_scene'|'event_event'|'character_character'} RelationshipType
+ * Hito dentro de una trama (no es entidad de relación).
+ * @typedef {Object} PlotMilestone
+ * @property {string} id
+ * @property {string} title
+ * @property {number} order
+ * @property {boolean} [completed]
+ */
+
+/**
+ * Trama narrativa del libro.
+ * @typedef {Object} Plot
+ * @property {string} id
+ * @property {string} title
+ * @property {string} description HTML del editor
+ * @property {'principal'|'secundaria'|'subtrama'} plotKind
+ * @property {string} narrativeGoal
+ * @property {string} mainConflict
+ * @property {'no_iniciada'|'en_desarrollo'|'resuelta'} status
+ * @property {number} progressPercent 0–100
+ * @property {PlotMilestone[]} milestones
+ */
+
+/**
+ * Lugar (ciudad, país, etc.).
+ * @typedef {Object} Place
+ * @property {string} id
+ * @property {string} name
+ * @property {string} description HTML del editor
+ * @property {'ciudad'|'pueblo'|'pais'|'region'|'otro'} placeKind
+ */
+
+/**
+ * @typedef {'character_chapter'|'character_scene'|'event_event'|'character_character'|'character_event'|'plot_character'|'plot_event'|'plot_chapter'|'place_character'|'place_plot'|'place_event'} RelationshipType
  */
 
 /**
@@ -194,6 +226,8 @@
  * @property {Snapshot[]} snapshots
  * @property {NoteItem[]} notes
  * @property {KanbanBoard[]} kanbanBoards
+ * @property {Plot[]} plots
+ * @property {Place[]} places
  */
 
 /**
@@ -224,6 +258,7 @@
  * @property {string} [sceneId]
  * @property {string} [characterId]
  * @property {string} [eventId]
+ * @property {string} [plotId]
  */
 
 /**

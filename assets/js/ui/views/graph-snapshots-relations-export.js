@@ -37,6 +37,14 @@ function entityLabel(book, kind, id) {
     }
     return id;
   }
+  if (kind === 'plot') {
+    const p = book.plots?.find((x) => x.id === id);
+    return p?.title || id;
+  }
+  if (kind === 'place') {
+    const pl = book.places?.find((x) => x.id === id);
+    return pl?.name || id;
+  }
   return id;
 }
 
@@ -48,6 +56,13 @@ function relTypeLabel(t) {
   if (t === 'character_scene') return 'Personaje → Escena';
   if (t === 'event_event') return 'Evento ↔ Evento';
   if (t === 'character_character') return 'Personaje ↔ Personaje';
+  if (t === 'character_event') return 'Personaje → Evento';
+  if (t === 'plot_character') return 'Trama → Personaje';
+  if (t === 'plot_event') return 'Trama → Evento';
+  if (t === 'plot_chapter') return 'Trama → Capítulo';
+  if (t === 'place_character') return 'Lugar → Personaje';
+  if (t === 'place_plot') return 'Lugar → Trama';
+  if (t === 'place_event') return 'Lugar → Evento';
   return String(t);
 }
 
@@ -172,6 +187,12 @@ export function renderRelations(book, _app) {
   const charOpts = chars.map((c) => `<option value="${c.id}">${escapeHtml(formatCharacterDisplayName(c))}</option>`).join('');
   const chOpts = chapters.map((c) => `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('');
   const evOpts = events.map((e) => `<option value="${e.id}">${escapeHtml(e.title || 'Evento')}</option>`).join('');
+  const plotOpts = (book.plots || [])
+    .map((p) => `<option value="${p.id}">${escapeHtml(p.title || 'Trama')}</option>`)
+    .join('');
+  const placeOpts = (book.places || [])
+    .map((pl) => `<option value="${pl.id}">${escapeHtml(pl.name || 'Lugar')}</option>`)
+    .join('');
   const roleOpts = CHARACTER_LINK_ROLE_OPTIONS.map(
     (o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`
   ).join('');
@@ -221,6 +242,13 @@ export function renderRelations(book, _app) {
             <button type="button" data-rel-wiz-pick="ps" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Personaje ↔ Escena</button>
             <button type="button" data-rel-wiz-pick="ee" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Evento ↔ Evento</button>
             <button type="button" data-rel-wiz-pick="cc" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Personaje ↔ Personaje</button>
+            <button type="button" data-rel-wiz-pick="ce" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Personaje → Evento</button>
+            <button type="button" data-rel-wiz-pick="plc" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Trama → Personaje</button>
+            <button type="button" data-rel-wiz-pick="ple" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Trama → Evento</button>
+            <button type="button" data-rel-wiz-pick="plch" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Trama → Capítulo</button>
+            <button type="button" data-rel-wiz-pick="plcc" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Lugar → Personaje</button>
+            <button type="button" data-rel-wiz-pick="plpp" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Lugar → Trama</button>
+            <button type="button" data-rel-wiz-pick="plev" class="p-3 rounded-lg border border-nl-border text-left text-sm text-slate-200 hover:border-indigo-500/50 hover:bg-nl-raised/60">Lugar → Evento</button>
           </div>
           <div data-rel-wiz-form class="hidden space-y-3 mt-4">
             <button type="button" data-rel-wiz-back class="text-sm text-indigo-400 hover:text-indigo-300">← Elegir otro tipo</button>
@@ -270,6 +298,76 @@ export function renderRelations(book, _app) {
               </select>
               <textarea data-wz-cc-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
               <button type="button" data-wz-cc-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-ce class="hidden space-y-2">
+              <select data-wz-ce-char class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Personaje</option>${charOpts}
+              </select>
+              <select data-wz-ce-ev class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Evento</option>${evOpts}
+              </select>
+              <textarea data-wz-ce-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-ce-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-plc class="hidden space-y-2">
+              <select data-wz-plc-plot class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Trama</option>${plotOpts}
+              </select>
+              <select data-wz-plc-char class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Personaje</option>${charOpts}
+              </select>
+              <textarea data-wz-plc-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-plc-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-ple class="hidden space-y-2">
+              <select data-wz-ple-plot class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Trama</option>${plotOpts}
+              </select>
+              <select data-wz-ple-ev class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Evento</option>${evOpts}
+              </select>
+              <textarea data-wz-ple-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-ple-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-plch class="hidden space-y-2">
+              <select data-wz-plch-plot class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Trama</option>${plotOpts}
+              </select>
+              <select data-wz-plch-ch class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Capítulo</option>${chOpts}
+              </select>
+              <textarea data-wz-plch-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-plch-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-plcc class="hidden space-y-2">
+              <select data-wz-plcc-place class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Lugar</option>${placeOpts}
+              </select>
+              <select data-wz-plcc-char class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Personaje</option>${charOpts}
+              </select>
+              <textarea data-wz-plcc-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-plcc-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-plpp class="hidden space-y-2">
+              <select data-wz-plpp-place class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Lugar</option>${placeOpts}
+              </select>
+              <select data-wz-plpp-plot class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Trama</option>${plotOpts}
+              </select>
+              <textarea data-wz-plpp-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-plpp-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
+            </div>
+            <div data-rel-wiz-panel-plev class="hidden space-y-2">
+              <select data-wz-plev-place class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Lugar</option>${placeOpts}
+              </select>
+              <select data-wz-plev-ev class="w-full bg-nl-raised border border-nl-border rounded px-2 py-1.5 text-sm">
+                <option value="">Evento</option>${evOpts}
+              </select>
+              <textarea data-wz-plev-desc rows="2" class="w-full text-xs bg-nl-bg border rounded px-2 py-1" placeholder="Descripción (opcional)"></textarea>
+              <button type="button" data-wz-plev-add class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">Vincular</button>
             </div>
           </div>
           <button type="button" data-rel-modal-close class="mt-4 text-sm text-nl-muted hover:text-slate-300">Cerrar</button>

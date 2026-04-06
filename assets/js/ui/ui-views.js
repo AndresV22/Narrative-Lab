@@ -28,3 +28,9 @@ export {
   renderExportPanel,
 } from './views/graph-snapshots-relations-export.js';
 export { renderKanbanList, renderKanbanBoardView } from './views/kanban.js';
+export {
+  renderPlotsList,
+  renderPlotEditor,
+  renderPlacesList,
+  renderPlaceEditor,
+} from './views/plots-places.js';

@@ -54,6 +54,14 @@ export function formatHighlightSource(book, h) {
     const ex = book.extraBlocks?.find((x) => x.id === id);
     return ex ? `Extra: ${ex.title}` : 'Extra';
   }
+  if (kind === 'plot') {
+    const p = book.plots?.find((x) => x.id === id);
+    return p ? `Trama: ${p.title || 'Sin título'}` : 'Trama';
+  }
+  if (kind === 'place') {
+    const pl = book.places?.find((x) => x.id === id);
+    return pl ? `Lugar: ${pl.name || 'Sin nombre'}` : 'Lugar';
+  }
   return kind || '—';
 }
 
@@ -65,7 +73,8 @@ export function formatHighlightSource(book, h) {
 export function canNavigateHighlightSource(book, h) {
   const kind = h.sourceKind || '';
   if (kind === 'scene') return !!(h.sourceId && inferChapterIdForSceneHighlight(book, h));
-  if (kind === 'chapter' || kind === 'note' || kind === 'extra' || kind === 'worldRule') return !!h.sourceId;
+  if (kind === 'chapter' || kind === 'note' || kind === 'extra' || kind === 'worldRule' || kind === 'plot' || kind === 'place')
+    return !!h.sourceId;
   if (
     kind === 'synopsis' ||
     kind === 'historicalContext' ||

@@ -77,6 +77,8 @@ export function renderSearchModal(app) {
           'scene',
           'note',
           'extra',
+          'plot',
+          'place',
         ]);
         const kindStr = kind || '';
         app.state.pendingSearchHighlight =
@@ -97,6 +99,12 @@ export function renderSearchModal(app) {
         else if (kind === 'note') {
           app.state.noteId = id;
           app.setView('note');
+        } else if (kind === 'plot' && id) {
+          app.state.plotId = id;
+          app.setView('plot');
+        } else if (kind === 'place' && id) {
+          app.state.placeId = id;
+          app.setView('place');
         } else if (kind === 'chapter') {
           app.state.chapterId = id;
           app.setView('chapter');

@@ -362,6 +362,8 @@ export function renderSidebar(app) {
       ${nav('historicalContext', 'Contexto', 'fa-landmark')}
       ${nav('worldRules', 'Reglas', 'fa-gavel')}
       ${nav('characters', 'Personajes', 'fa-users')}
+      ${nav('plots', 'Tramas', 'fa-route')}
+      ${nav('places', 'Lugares', 'fa-map-location-dot')}
       ${nav('timeline', 'Línea de tiempo', 'fa-clock')}
       <button type="button" data-nav="kanban" title="Kanban" aria-label="Kanban" class="nav-item w-full flex items-center gap-2.5 text-left px-3 py-2 rounded-lg text-sm ${
         app.state.view === 'kanban' || app.state.view === 'kanbanBoard' ? 'bg-nl-raised text-white' : 'text-slate-300 hover:bg-nl-raised/60'
@@ -413,6 +415,8 @@ function isBookEditorSurface(app) {
   if (v === 'extras' && app.state.extraId) return true;
   if (v === 'worldRules' && app.state.worldRuleId) return true;
   if (v === 'chapter' || v === 'scene' || v === 'note') return true;
+  if (v === 'plot' && app.state.plotId) return true;
+  if (v === 'place' && app.state.placeId) return true;
   return false;
 }
 

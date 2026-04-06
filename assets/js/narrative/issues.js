@@ -67,6 +67,18 @@ export function detectNarrativeIssues(book) {
     if (r.type === 'event_event') {
       if (r.from.kind === 'event') eventConnected.add(r.from.id);
       if (r.to.kind === 'event') eventConnected.add(r.to.id);
+      continue;
+    }
+    if (r.type === 'character_event' && r.to.kind === 'event') {
+      eventConnected.add(r.to.id);
+      continue;
+    }
+    if (r.type === 'plot_event' && r.to.kind === 'event') {
+      eventConnected.add(r.to.id);
+      continue;
+    }
+    if (r.type === 'place_event' && r.to.kind === 'event') {
+      eventConnected.add(r.to.id);
     }
   }
   for (const id of eventIds) {
@@ -75,7 +87,7 @@ export function detectNarrativeIssues(book) {
       out.push({
         severity: 'info',
         code: 'event_isolated',
-        message: `Evento «${ev?.title || 'Sin título'}» sin conexiones con otros eventos`,
+        message: `Evento «${ev?.title || 'Sin título'}» sin vínculos en Relaciones (eventos, personajes, tramas o lugares)`,
         eventId: id,
       });
     }

@@ -1,8 +1,17 @@
 import { describe, it, expect } from 'vitest';
+import { createEmptyBook, createPlot, createPlace, createCharacter, createEvent, createChapter } from '../domain/models.js';
 import {
   characterLinkPhraseForViewer,
   characterLinkCanonicalPhrase,
   isChildRole,
+  linkCharacterToEvent,
+  linkPlotToCharacter,
+  linkPlotToEvent,
+  linkPlotToChapter,
+  linkPlaceToCharacter,
+  linkPlaceToPlot,
+  linkPlaceToEvent,
+  listRelationships,
 } from './relations.js';
 
 /** @returns {import('../core/types.js').Relationship} */
@@ -70,5 +79,34 @@ describe('characterLinkCanonicalPhrase', () => {
     expect(characterLinkCanonicalPhrase(r, 'Mara', 'Jason')).toBe(
       characterLinkPhraseForViewer('mara', r, { viewerName: 'Mara', otherName: 'Jason' })
     );
+  });
+});
+
+describe('vínculos plot/place/character_event', () => {
+  it('añade character_event, plot_* y place_* sin duplicar', () => {
+    const book = createEmptyBook();
+    const ch = createCharacter({ id: 'c1' });
+    const ev = createEvent({ id: 'e1' });
+    const pl = createPlot({ id: 'p1' });
+    const place = createPlace({ id: 'l1' });
+    const chapter = createChapter({ id: 'h1' });
+    book.characters.push(ch);
+    book.events.push(ev);
+    book.plots.push(pl);
+    book.places.push(place);
+    book.chapters.push(chapter);
+
+    linkCharacterToEvent(book, 'c1', 'e1', { description: 'x' });
+    linkPlotToCharacter(book, 'p1', 'c1');
+    linkPlotToEvent(book, 'p1', 'e1');
+    linkPlotToChapter(book, 'p1', 'h1');
+    linkPlaceToCharacter(book, 'l1', 'c1');
+    linkPlaceToPlot(book, 'l1', 'p1');
+    linkPlaceToEvent(book, 'l1', 'e1');
+
+    const rels = listRelationships(book);
+    expect(rels.length).toBe(7);
+    linkCharacterToEvent(book, 'c1', 'e1');
+    expect(listRelationships(book).length).toBe(7);
   });
 });

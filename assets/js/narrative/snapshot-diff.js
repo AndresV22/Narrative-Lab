@@ -13,6 +13,8 @@ import { sortByOrder } from '../core/utils.js';
  * @property {number} deltaCharacters
  * @property {number} deltaEvents
  * @property {number} deltaRelationships
+ * @property {number} deltaPlots
+ * @property {number} deltaPlaces
  * @property {string[]} changedChapters
  */
 
@@ -66,6 +68,8 @@ export function diffBookPayloads(a, b) {
   const deltaCharacters = (b.characters || []).length - (a.characters || []).length;
   const deltaEvents = (b.events || []).length - (a.events || []).length;
   const deltaRelationships = (b.relationships || []).length - (a.relationships || []).length;
+  const deltaPlots = (b.plots || []).length - (a.plots || []).length;
+  const deltaPlaces = (b.places || []).length - (a.places || []).length;
 
   return {
     deltaWords: wb - wa,
@@ -74,6 +78,8 @@ export function diffBookPayloads(a, b) {
     deltaCharacters,
     deltaEvents,
     deltaRelationships,
+    deltaPlots,
+    deltaPlaces,
     changedChapters: [...new Set(changedChapters)],
   };
 }

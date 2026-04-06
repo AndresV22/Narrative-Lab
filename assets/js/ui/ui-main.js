@@ -13,6 +13,9 @@ import {
   createExtraBlock,
   createWorldRule,
   createEmptyAuthorProfile,
+  createPlot,
+  createPlace,
+  createPlotMilestone,
 } from '../domain/models.js';
 import { configureAutosaveDelay } from '../domain/storage.js';
 import {
@@ -30,6 +33,13 @@ import {
   linkCharacterToScene,
   linkEventToEvent,
   linkCharacterToCharacter,
+  linkCharacterToEvent,
+  linkPlotToCharacter,
+  linkPlotToEvent,
+  linkPlotToChapter,
+  linkPlaceToCharacter,
+  linkPlaceToPlot,
+  linkPlaceToEvent,
   removeRelationship,
 } from '../narrative/relations.js';
 import { showToast } from './toast.js';
@@ -66,6 +76,10 @@ import {
   renderWritingGuide,
   renderKanbanList,
   renderKanbanBoardView,
+  renderPlotsList,
+  renderPlotEditor,
+  renderPlacesList,
+  renderPlaceEditor,
 } from './ui-views.js';
 import { bindKanbanBoard, bindKanbanList } from './views/kanban.js';
 import { renderLibraryDashboard } from './views/library-dashboard.js';
@@ -84,6 +98,60 @@ import { isoDateToDisplay, displayDateToIso } from '../core/date-format.js';
 function gv(main, field) {
   const el = main.querySelector(`[data-f="${field}"]`);
   return el && 'value' in el ? String(/** @type {HTMLInputElement} */ (el).value) : '';
+}
+
+/**
+ * @param {import('../core/types.js').Plot} plot
+ * @param {HTMLElement} main
+ */
+function syncPlotFieldsFromDom(plot, main) {
+  const title = main.querySelector('[data-plot-title]');
+  if (title && 'value' in title) plot.title = String(/** @type {HTMLInputElement} */ (title).value);
+  const k = main.querySelector('[data-plot-kind]');
+  if (k && 'value' in k) {
+    plot.plotKind = /** @type {'principal'|'secundaria'|'subtrama'} */ (
+      /** @type {HTMLSelectElement} */ (k).value
+    );
+  }
+  const st = main.querySelector('[data-plot-status]');
+  if (st && 'value' in st) {
+    plot.status = /** @type {'no_iniciada'|'en_desarrollo'|'resuelta'} */ (/** @type {HTMLSelectElement} */ (st).value);
+  }
+  const g = main.querySelector('[data-plot-goal]');
+  if (g && 'value' in g) plot.narrativeGoal = String(/** @type {HTMLTextAreaElement} */ (g).value);
+  const cf = main.querySelector('[data-plot-conflict]');
+  if (cf && 'value' in cf) plot.mainConflict = String(/** @type {HTMLTextAreaElement} */ (cf).value);
+  const pr = main.querySelector('[data-plot-progress]');
+  if (pr && 'value' in pr) {
+    const n = parseInt(String(/** @type {HTMLInputElement} */ (pr).value), 10);
+    plot.progressPercent = Number.isNaN(n) ? 0 : Math.max(0, Math.min(100, n));
+  }
+  /** @type {import('../core/types.js').PlotMilestone[]} */
+  const milestones = [];
+  main.querySelectorAll('[data-mile-title]').forEach((el, i) => {
+    const id = el.getAttribute('data-mile-title');
+    if (!id) return;
+    const mt = 'value' in el ? String(/** @type {HTMLInputElement} */ (el).value) : '';
+    const doneEl = main.querySelector(`[data-mile-done="${id}"]`);
+    const completed = doneEl && 'checked' in doneEl ? /** @type {HTMLInputElement} */ (doneEl).checked : false;
+    milestones.push({ id, title: mt, order: i, completed });
+  });
+  plot.milestones = milestones;
+}
+
+/**
+ * @param {import('../core/types.js').Place} place
+ * @param {HTMLElement} main
+ */
+function syncPlaceFieldsFromDom(place, main) {
+  const n = main.querySelector('[data-place-name]');
+  if (n && 'value' in n) place.name = String(/** @type {HTMLInputElement} */ (n).value);
+  const k = main.querySelector('[data-place-kind]');
+  if (k && 'value' in k) {
+    place.placeKind = /** @type {'ciudad'|'pueblo'|'pais'|'region'|'otro'} */ (
+      /** @type {HTMLSelectElement} */ (k).value
+    );
+  }
 }
 
 /**
@@ -610,6 +678,34 @@ export function renderMain(app) {
     app.attachEditor(main.querySelector('[data-ed-note]'), 'note', note.id);
     return;
   }
+  if (v === 'plots') {
+    main.innerHTML = renderPlotsList(book);
+    return;
+  }
+  if (v === 'plot' && app.state.plotId) {
+    const plot = book.plots?.find((p) => p.id === app.state.plotId);
+    if (!plot) {
+      app.setView('plots');
+      return;
+    }
+    main.innerHTML = renderPlotEditor(book, plot);
+    app.attachEditor(main.querySelector('[data-ed-plot]'), 'plot', plot.id);
+    return;
+  }
+  if (v === 'places') {
+    main.innerHTML = renderPlacesList(book);
+    return;
+  }
+  if (v === 'place' && app.state.placeId) {
+    const place = book.places?.find((p) => p.id === app.state.placeId);
+    if (!place) {
+      app.setView('places');
+      return;
+    }
+    main.innerHTML = renderPlaceEditor(book, place);
+    app.attachEditor(main.querySelector('[data-ed-place]'), 'place', place.id);
+    return;
+  }
   if (v === 'highlights') {
     if (app.state.highlightId) {
       const hl = book.highlights?.find((x) => x.id === app.state.highlightId);
@@ -946,6 +1042,24 @@ export function bindMainInteractions(app) {
         main.querySelector(`[data-del-ev="${ev.id}"]`)?.addEventListener('click', () => {
           app.deleteEventById(ev.id);
         });
+        main.querySelector(`[data-ev-link-char="${ev.id}"]`)?.addEventListener('click', () => {
+          const sel = /** @type {HTMLSelectElement|null} */ (main.querySelector(`[data-ev-pick-char="${ev.id}"]`));
+          const cid = sel?.value;
+          if (!cid) return;
+          linkCharacterToEvent(book, cid, ev.id);
+          app.persist();
+          renderMain(app);
+          bindMainInteractions(app);
+        });
+        main.querySelectorAll('[data-ev-unlink-char]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const rid = btn.getAttribute('data-ev-unlink-char');
+            if (rid) removeRelationship(book, rid);
+            app.persist();
+            renderMain(app);
+            bindMainInteractions(app);
+          });
+        });
       }
     }
   }
@@ -1165,6 +1279,253 @@ export function bindMainInteractions(app) {
     }
   }
 
+  if (app.state.view === 'plots') {
+    if (!book.plots) book.plots = [];
+    main.querySelector('[data-add-plot]')?.addEventListener('click', () => {
+      const p = createPlot({ title: 'Nueva trama' });
+      book.plots.push(p);
+      app.persist();
+      app.state.plotId = p.id;
+      app.setView('plot');
+    });
+    main.querySelectorAll('[data-open-plot]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-open-plot');
+        if (id) {
+          app.state.plotId = id;
+          app.setView('plot');
+        }
+      });
+    });
+    main.querySelectorAll('[data-del-plot]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-del-plot');
+        if (id) app.deletePlotById(id);
+      });
+    });
+  }
+
+  if (app.state.view === 'plot' && app.state.plotId) {
+    const plot = book.plots?.find((p) => p.id === app.state.plotId);
+    if (plot) {
+      main.querySelector('[data-back-plots]')?.addEventListener('click', () => {
+        syncPlotFieldsFromDom(plot, main);
+        app.applyEditorHtml('plot', plot.id, null, app.editor?.getHtml() || plot.description);
+        app.persist();
+        app.state.plotId = null;
+        app.setView('plots');
+      });
+      main.querySelector('[data-save-plot]')?.addEventListener('click', () => {
+        syncPlotFieldsFromDom(plot, main);
+        app.applyEditorHtml('plot', plot.id, null, app.editor?.getHtml() || plot.description);
+        app.persist();
+        app.state.plotId = null;
+        app.setView('plots');
+      });
+      main.querySelector('[data-del-plot-editor]')?.addEventListener('click', () => {
+        app.deletePlotById(plot.id);
+      });
+      main.querySelector('[data-plot-add-char]')?.addEventListener('click', () => {
+        syncPlotFieldsFromDom(plot, main);
+        app.applyEditorHtml('plot', plot.id, null, app.editor?.getHtml() || plot.description);
+        const sel = /** @type {HTMLSelectElement | null} */ (main.querySelector('[data-plot-sel-char]'));
+        const charId = sel?.value?.trim();
+        if (!charId) {
+          showToast('Elige un personaje', 'warning');
+          return;
+        }
+        linkPlotToCharacter(book, plot.id, charId, {});
+        app.persist();
+        if (sel) sel.value = '';
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelector('[data-plot-add-ev]')?.addEventListener('click', () => {
+        syncPlotFieldsFromDom(plot, main);
+        app.applyEditorHtml('plot', plot.id, null, app.editor?.getHtml() || plot.description);
+        const sel = /** @type {HTMLSelectElement | null} */ (main.querySelector('[data-plot-sel-ev]'));
+        const evId = sel?.value?.trim();
+        if (!evId) {
+          showToast('Elige un evento', 'warning');
+          return;
+        }
+        linkPlotToEvent(book, plot.id, evId, {});
+        app.persist();
+        if (sel) sel.value = '';
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelector('[data-plot-add-ch]')?.addEventListener('click', () => {
+        syncPlotFieldsFromDom(plot, main);
+        app.applyEditorHtml('plot', plot.id, null, app.editor?.getHtml() || plot.description);
+        const sel = /** @type {HTMLSelectElement | null} */ (main.querySelector('[data-plot-sel-ch]'));
+        const chId = sel?.value?.trim();
+        if (!chId) {
+          showToast('Elige un capítulo', 'warning');
+          return;
+        }
+        linkPlotToChapter(book, plot.id, chId, {});
+        app.persist();
+        if (sel) sel.value = '';
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelectorAll('[data-plot-rel-rm]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const rid = btn.getAttribute('data-plot-rel-rm');
+          if (!rid) return;
+          const ok = await showConfirmModal(app, {
+            title: 'Quitar vínculo',
+            message: '¿Quitar esta relación de la trama?',
+            confirmLabel: 'Quitar',
+            danger: true,
+          });
+          if (!ok) return;
+          syncPlotFieldsFromDom(plot, main);
+          app.applyEditorHtml('plot', plot.id, null, app.editor?.getHtml() || plot.description);
+          removeRelationship(book, rid);
+          app.persist();
+          renderMain(app);
+          bindMainInteractions(app);
+        });
+      });
+      main.querySelector('[data-plot-add-milestone]')?.addEventListener('click', () => {
+        if (!plot.milestones) plot.milestones = [];
+        plot.milestones.push(
+          createPlotMilestone({ title: 'Hito', order: plot.milestones.length })
+        );
+        app.persist();
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelectorAll('[data-mile-del]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-mile-del');
+          if (!id || !plot.milestones) return;
+          plot.milestones = plot.milestones.filter((m) => m.id !== id);
+          app.persist();
+          renderMain(app);
+          bindMainInteractions(app);
+        });
+      });
+    }
+  }
+
+  if (app.state.view === 'places') {
+    if (!book.places) book.places = [];
+    main.querySelector('[data-add-place]')?.addEventListener('click', () => {
+      const p = createPlace({ name: 'Nuevo lugar' });
+      book.places.push(p);
+      app.persist();
+      app.state.placeId = p.id;
+      app.setView('place');
+    });
+    main.querySelectorAll('[data-open-place]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-open-place');
+        if (id) {
+          app.state.placeId = id;
+          app.setView('place');
+        }
+      });
+    });
+    main.querySelectorAll('[data-del-place]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-del-place');
+        if (id) app.deletePlaceById(id);
+      });
+    });
+  }
+
+  if (app.state.view === 'place' && app.state.placeId) {
+    const place = book.places?.find((p) => p.id === app.state.placeId);
+    if (place) {
+      main.querySelector('[data-back-places]')?.addEventListener('click', () => {
+        syncPlaceFieldsFromDom(place, main);
+        app.applyEditorHtml('place', place.id, null, app.editor?.getHtml() || place.description);
+        app.persist();
+        app.state.placeId = null;
+        app.setView('places');
+      });
+      main.querySelector('[data-save-place]')?.addEventListener('click', () => {
+        syncPlaceFieldsFromDom(place, main);
+        app.applyEditorHtml('place', place.id, null, app.editor?.getHtml() || place.description);
+        app.persist();
+        app.state.placeId = null;
+        app.setView('places');
+      });
+      main.querySelector('[data-del-place-editor]')?.addEventListener('click', () => {
+        app.deletePlaceById(place.id);
+      });
+      main.querySelector('[data-place-add-char]')?.addEventListener('click', () => {
+        syncPlaceFieldsFromDom(place, main);
+        app.applyEditorHtml('place', place.id, null, app.editor?.getHtml() || place.description);
+        const sel = /** @type {HTMLSelectElement | null} */ (main.querySelector('[data-place-sel-char]'));
+        const charId = sel?.value?.trim();
+        if (!charId) {
+          showToast('Elige un personaje', 'warning');
+          return;
+        }
+        linkPlaceToCharacter(book, place.id, charId, {});
+        app.persist();
+        if (sel) sel.value = '';
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelector('[data-place-add-plot]')?.addEventListener('click', () => {
+        syncPlaceFieldsFromDom(place, main);
+        app.applyEditorHtml('place', place.id, null, app.editor?.getHtml() || place.description);
+        const sel = /** @type {HTMLSelectElement | null} */ (main.querySelector('[data-place-sel-plot]'));
+        const plotId = sel?.value?.trim();
+        if (!plotId) {
+          showToast('Elige una trama', 'warning');
+          return;
+        }
+        linkPlaceToPlot(book, place.id, plotId, {});
+        app.persist();
+        if (sel) sel.value = '';
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelector('[data-place-add-ev]')?.addEventListener('click', () => {
+        syncPlaceFieldsFromDom(place, main);
+        app.applyEditorHtml('place', place.id, null, app.editor?.getHtml() || place.description);
+        const sel = /** @type {HTMLSelectElement | null} */ (main.querySelector('[data-place-sel-ev]'));
+        const evId = sel?.value?.trim();
+        if (!evId) {
+          showToast('Elige un evento', 'warning');
+          return;
+        }
+        linkPlaceToEvent(book, place.id, evId, {});
+        app.persist();
+        if (sel) sel.value = '';
+        renderMain(app);
+        bindMainInteractions(app);
+      });
+      main.querySelectorAll('[data-place-rel-rm]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const rid = btn.getAttribute('data-place-rel-rm');
+          if (!rid) return;
+          const ok = await showConfirmModal(app, {
+            title: 'Quitar vínculo',
+            message: '¿Quitar esta relación del lugar?',
+            confirmLabel: 'Quitar',
+            danger: true,
+          });
+          if (!ok) return;
+          syncPlaceFieldsFromDom(place, main);
+          app.applyEditorHtml('place', place.id, null, app.editor?.getHtml() || place.description);
+          removeRelationship(book, rid);
+          app.persist();
+          renderMain(app);
+          bindMainInteractions(app);
+        });
+      });
+    }
+  }
+
   if (app.state.view === 'highlights' && !app.state.highlightId) {
     main.querySelectorAll('[data-open-hl]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1310,7 +1671,7 @@ export function bindMainInteractions(app) {
         <p><strong class="text-slate-200">Δ palabras:</strong> ${sign(d.deltaWords)}</p>
         <p><strong class="text-slate-200">Estructura:</strong> capítulos ${sign(d.deltaChapters)}, escenas ${sign(d.deltaScenes)}, personajes ${sign(
         d.deltaCharacters
-      )}, eventos ${sign(d.deltaEvents)}, relaciones ${sign(d.deltaRelationships)}</p>
+      )}, eventos ${sign(d.deltaEvents)}, tramas ${sign(d.deltaPlots)}, lugares ${sign(d.deltaPlaces)}, relaciones ${sign(d.deltaRelationships)}</p>
         <p class="text-slate-200 font-medium mt-2">Capítulos cambiados (${d.changedChapters.length})</p>
         <ul class="list-disc pl-4 space-y-0.5 max-h-32 overflow-y-auto nl-scroll">${chapterLines || '<li class="text-nl-muted">Ninguno</li>'}</ul>
       `;
@@ -1342,7 +1703,7 @@ export function bindMainInteractions(app) {
       if (e.target === modal) closeModal();
     });
     main.querySelector('[data-rel-wiz-back]')?.addEventListener('click', showWizardType);
-    const panels = ['pc', 'ps', 'ee', 'cc'];
+    const panels = ['pc', 'ps', 'ee', 'cc', 'ce', 'plc', 'ple', 'plch', 'plcc', 'plpp', 'plev'];
     main.querySelectorAll('[data-rel-wiz-pick]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const k = btn.getAttribute('data-rel-wiz-pick');
@@ -1422,6 +1783,90 @@ export function bindMainInteractions(app) {
         return;
       }
       linkCharacterToCharacter(book, a, b, { role, description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      rerenderRightPanelChrome(app);
+    });
+    main.querySelector('[data-wz-ce-add]')?.addEventListener('click', () => {
+      const c = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ce-char]'))?.value;
+      const ev = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ce-ev]'))?.value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-ce-desc]'));
+      if (!c || !ev) return;
+      linkCharacterToEvent(book, c, ev, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      rerenderRightPanelChrome(app);
+    });
+    main.querySelector('[data-wz-plc-add]')?.addEventListener('click', () => {
+      const plotId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plc-plot]'))?.value;
+      const charId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plc-char]'))?.value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-plc-desc]'));
+      if (!plotId || !charId) return;
+      linkPlotToCharacter(book, plotId, charId, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      rerenderRightPanelChrome(app);
+    });
+    main.querySelector('[data-wz-ple-add]')?.addEventListener('click', () => {
+      const plotId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ple-plot]'))?.value;
+      const evId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-ple-ev]'))?.value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-ple-desc]'));
+      if (!plotId || !evId) return;
+      linkPlotToEvent(book, plotId, evId, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      rerenderRightPanelChrome(app);
+    });
+    main.querySelector('[data-wz-plch-add]')?.addEventListener('click', () => {
+      const plotId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plch-plot]'))?.value;
+      const chId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plch-ch]'))?.value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-plch-desc]'));
+      if (!plotId || !chId) return;
+      linkPlotToChapter(book, plotId, chId, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      rerenderRightPanelChrome(app);
+    });
+    main.querySelector('[data-wz-plcc-add]')?.addEventListener('click', () => {
+      const placeId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plcc-place]'))?.value;
+      const charId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plcc-char]'))?.value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-plcc-desc]'));
+      if (!placeId || !charId) return;
+      linkPlaceToCharacter(book, placeId, charId, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      rerenderRightPanelChrome(app);
+    });
+    main.querySelector('[data-wz-plpp-add]')?.addEventListener('click', () => {
+      const placeId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plpp-place]'))?.value;
+      const plotId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plpp-plot]'))?.value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-plpp-desc]'));
+      if (!placeId || !plotId) return;
+      linkPlaceToPlot(book, placeId, plotId, { description: d?.value || '' });
+      app.persist();
+      closeModal();
+      renderMain(app);
+      bindMainInteractions(app);
+      rerenderRightPanelChrome(app);
+    });
+    main.querySelector('[data-wz-plev-add]')?.addEventListener('click', () => {
+      const placeId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plev-place]'))?.value;
+      const evId = /** @type {HTMLSelectElement} */ (main.querySelector('[data-wz-plev-ev]'))?.value;
+      const d = /** @type {HTMLTextAreaElement} */ (main.querySelector('[data-wz-plev-desc]'));
+      if (!placeId || !evId) return;
+      linkPlaceToEvent(book, placeId, evId, { description: d?.value || '' });
       app.persist();
       closeModal();
       renderMain(app);

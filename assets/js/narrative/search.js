@@ -6,7 +6,7 @@ import { normalizeSearch, snippet, stripHtml } from '../core/utils.js';
 
 /**
  * @typedef {Object} SearchHit
- * @property {'chapter'|'scene'|'note'|'synopsis'|'prologue'|'event'|'extra'|'historicalContext'|'worldRules'|'worldRule'} kind
+ * @property {'chapter'|'scene'|'note'|'synopsis'|'prologue'|'event'|'extra'|'historicalContext'|'worldRules'|'worldRule'|'plot'|'place'} kind
  * @property {string} bookId
  * @property {string} bookName
  * @property {string} id
@@ -120,6 +120,34 @@ export function searchInBook(book, query) {
         id: note.id,
         label: `Nota: ${note.title}`,
         excerpt: snippet(stripHtml(note.title + ' ' + note.content)),
+      });
+    }
+  }
+
+  for (const p of book.plots || []) {
+    const blob = `${p.title || ''} ${p.narrativeGoal || ''} ${p.mainConflict || ''} ${p.description || ''}`;
+    if (match(blob)) {
+      hits.push({
+        kind: 'plot',
+        bookId: book.id,
+        bookName: book.name,
+        id: p.id,
+        label: `Trama: ${p.title || '(sin título)'}`,
+        excerpt: snippet(stripHtml(blob)),
+      });
+    }
+  }
+
+  for (const pl of book.places || []) {
+    const blob = `${pl.name || ''} ${pl.description || ''}`;
+    if (match(blob)) {
+      hits.push({
+        kind: 'place',
+        bookId: book.id,
+        bookName: book.name,
+        id: pl.id,
+        label: `Lugar: ${pl.name || '(sin nombre)'}`,
+        excerpt: snippet(stripHtml(blob)),
       });
     }
   }
