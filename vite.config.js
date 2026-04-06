@@ -43,6 +43,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    /** Desactiva <link rel="modulepreload"> en el bundle; en GitHub Pages + PWA a veces se mezclaba la precarga con CSS y el navegador devolvía MIME text/css al cargar un chunk como módulo. */
+    modulePreload: false,
   },
   test: {
     environment: 'jsdom',
