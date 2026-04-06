@@ -4,8 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'));
 
+/** GitHub Pages (proyecto): usa el nombre del repo, p. ej. VITE_BASE_PATH=/narrative-lab/ en CI. Local: ./ */
+const base = process.env.VITE_BASE_PATH || './';
+
 export default defineConfig({
-  base: './Narrative-Lab',
+  base,
   publicDir: 'public',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

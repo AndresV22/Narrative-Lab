@@ -25,7 +25,10 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci
+      # Debe coincidir con la ruta del sitio: https://<usuario>.github.io/<nombre-repo>/
       - run: npm run build
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
