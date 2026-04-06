@@ -63,7 +63,7 @@ Agrupada en secciones:
 | Sección | Contenido |
 |--------|-----------|
 | **Plan** | Prólogo, capítulos y escenas, actos, epílogo |
-| **Notas del autor** | Sinopsis, contexto histórico, reglas del mundo, personajes, línea de tiempo, **Kanban**, extras, notas |
+| **Notas del autor** | Sinopsis, contexto histórico, reglas del mundo, personajes, **tramas**, **lugares**, línea de tiempo, **Kanban**, extras, notas |
 | **Herramientas** | Frases destacadas, **análisis** (con contador de avisos en el menú), **mapa / grafo**, historial de snapshots, relaciones, exportar libro, metadatos del libro |
 | **Guía** | Guía de escritura integrada |
 
@@ -81,7 +81,12 @@ Agrupada en secciones:
 
 - Fichas de personajes con imagen (data URL).
 - **Línea de tiempo** unificada con eventos (crear, editar, ordenar, eliminar) y vista cronológica.
-- **Relaciones** entre personajes, capítulos, escenas y entre eventos; gestión en vista dedicada.
+- **Relaciones** entre personajes, capítulos, escenas y entre eventos; gestión en vista dedicada. Las **tramas** y los **lugares** también participan en el modelo de relaciones y puedes gestionar sus vínculos principales **desde su propio editor** (sin depender de abrir solo la vista Relaciones).
+
+### Tramas y lugares
+
+- **Tramas** (sección *Notas del autor*): listado donde cada fila muestra de forma clara el **tipo** (principal, secundaria, subtrama), el **porcentaje de completado** y el **estado** (no iniciada, en desarrollo, resuelta). El editor de una trama está **centrado** en el panel (ancho máximo coherente con el resto de formularios) e incluye objetivo narrativo, conflicto, progreso, **hitos**, descripción enriquecida y un bloque de **relaciones**: puedes **vincular o quitar** personajes, eventos y capítulos con selectores y botones en la misma pantalla.
+- **Lugares**: listado por nombre y tipo; el editor también está **centrado** y permite describir el lugar y **vincular o quitar** personajes, tramas y eventos **en contexto**, sin tener que ir primero a la vista Relaciones para crear esos vínculos básicos.
 - **Mapa / grafo de relaciones**:
   - **Solo personajes**: elige un **personaje raíz** para ver su **subred conexa** con trazado **ortogonal** (solo líneas horizontales/verticales) y **leyenda por tipo de vínculo** (p. ej. familiar, pareja), útil para visualizar redes y lecturas tipo **árbol genealógico** según los vínculos que definas.
   - **Personajes + capítulos** y **Todo**: vistas más amplias; el modo «Todo» incluye la **vista clásica por anillos** además de la red cuando aplica.
