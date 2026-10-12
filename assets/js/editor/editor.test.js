@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { computeEditorRealtimeMetrics, RichEditor } from './editor.js';
+import { bindToolbar, computeEditorRealtimeMetrics, RichEditor, toolbarHtml } from './editor.js';
 
 describe('computeEditorRealtimeMetrics', () => {
   it('cuenta varios párrafos HTML (&lt;p&gt;), no solo uno', () => {
@@ -117,5 +117,64 @@ describe('RichEditor', () => {
 
     editor.destroy();
     host.remove();
+  });
+});
+
+describe('tamaño de fuente', () => {
+  /**
+   * @returns {{ wrap: HTMLElement, host: HTMLElement, editor: RichEditor, input: HTMLInputElement, cleanup: () => void }}
+   */
+  function mount() {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `${toolbarHtml()}<div id="nl-host"></div>`;
+    document.body.appendChild(wrap);
+    const host = /** @type {HTMLElement} */ (wrap.querySelector('#nl-host'));
+    const editor = new RichEditor(host);
+    editor.mount('<p>Hola mundo</p>');
+    const cleanup = bindToolbar(/** @type {HTMLElement} */ (wrap.querySelector('[data-nl-toolbar]')), editor);
+    const input = /** @type {HTMLInputElement} */ (wrap.querySelector('[data-font-size-px]'));
+    return { wrap, host, editor, input, cleanup };
+  }
+
+  function selectWord(host) {
+    const text = host.querySelector('p')?.firstChild;
+    const range = document.createRange();
+    range.setStart(/** @type {Text} */ (text), 0);
+    range.setEnd(/** @type {Text} */ (text), 4);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }
+
+  it('el botón de subir tamaño cambia la selección y conserva el texto', () => {
+    const { wrap, host, editor, cleanup } = mount();
+    selectWord(host);
+    const up = /** @type {HTMLButtonElement} */ (wrap.querySelector('[data-font-size-step="1"]'));
+    up.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    up.click();
+    expect(host.textContent).toContain('Hola');
+    expect(host.innerHTML).toContain('font-size: 18px');
+    cleanup();
+    editor.destroy();
+    wrap.remove();
+  });
+
+  it('escribir 20 no borra la selección y aplica 20px al confirmar', () => {
+    const { wrap, host, editor, input, cleanup } = mount();
+    selectWord(host);
+    input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    input.focus();
+    input.value = '2';
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '2' }));
+    input.value = '20';
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '0' }));
+    expect(host.textContent).toContain('Hola mundo');
+    expect(host.innerHTML).not.toContain('font-size: 8px');
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(host.textContent).toContain('Hola mundo');
+    expect(host.innerHTML).toContain('font-size: 20px');
+    cleanup();
+    editor.destroy();
+    wrap.remove();
   });
 });

@@ -12,6 +12,7 @@ import {
   setBlockLineHeightPreset,
 } from './editor-helpers.js';
 import {
+  EDITOR_DEFAULT_FONT_SIZE_PX,
   EDITOR_FONT_OPTIONS,
   FONT_SIZE_PRESETS,
   applyFontFamilyToSelection,
@@ -265,14 +266,7 @@ export class RichEditor {
     this._toolbarHandler = null;
     /** @type {(() => void) | null} */
     this._listKeyboardCleanup = null;
-    this._pendingHtml = null;
-    this._debounced = debounce((html) => {
-      this._pendingHtml = null;
-      // #region agent log
-      fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'A',location:'editor.js:debounced',message:'onChange debounce fired',data:{htmlLen:(html||'').length,hasProbe:String(html||'').includes('perderse')},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      this._onChange(html);
-    }, 500);
+    this._debounced = debounce((html) => this._onChange(html), 500);
     this._debouncedProgress = debounce(() => {
       if (this.options.progressMode === 'debounce' && this.options.onProgressRefresh) {
         this.options.onProgressRefresh();
@@ -335,10 +329,6 @@ export class RichEditor {
       if (!this._ignoreHistoryForUndoRedo) {
         this._recordHtmlHistoryIfChanged(html);
       }
-      this._pendingHtml = html;
-      // #region agent log
-      fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'C',location:'editor.js:_onInput',message:'input scheduled debounce',data:{htmlLen:(html||'').length,hasProbe:String(html||'').includes('perderse')},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       this._debounced(html);
       if (this.options.progressMode === 'debounce') {
         this._debouncedProgress();
@@ -361,9 +351,6 @@ export class RichEditor {
   }
 
   destroy() {
-    // #region agent log
-    fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'A',location:'editor.js:destroy',message:'destroy before cancel',data:{pendingLen:(this._pendingHtml||'').length,pendingProbe:String(this._pendingHtml||'').includes('perderse'),hostLen:(this.host?.textContent||'').length,hostProbe:String(this.host?.textContent||'').includes('perderse')},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     this._debounced.cancel();
     this._debouncedProgress.cancel();
     this._debouncedRealtime.cancel();
@@ -664,7 +651,7 @@ function syncToolbarToSelection(toolbarEl, editor) {
       /** @type {HTMLSelectElement} */ (ff).value = getFontFamilyValueForToolbar(host);
     }
     const fspx = toolbarEl.querySelector('[data-font-size-px]');
-    if (fspx && 'value' in fspx) {
+    if (fspx && 'value' in fspx && document.activeElement !== fspx) {
       const px = getFontSizePxForToolbar(host);
       /** @type {HTMLInputElement} */ (fspx).value = px === null ? '' : String(px);
     }
@@ -1077,7 +1064,26 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   }
   const fspx = toolbarEl.querySelector('[data-font-size-px]');
   if (fspx) {
-    let lastApplyTs = 0;
+    const fontSizeInput = /** @type {HTMLInputElement} */ (fspx);
+    /** @param {number} n */
+    const applyCommittedFontSize = (n) => {
+      const clamped = Math.min(96, Math.max(8, Math.round(n)));
+      fontSizeInput.value = String(clamped);
+      const r = savedToolbarRange ? savedToolbarRange.cloneRange() : null;
+      const keepFontField = document.activeElement === fontSizeInput;
+      if (!keepFontField) editor.focus();
+      applyFontSizePxToSelection(clamped, r || undefined);
+      editor.host.dispatchEvent(new Event('input'));
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const nr = sel.getRangeAt(0);
+        if (selectionNonCollapsedInHost(nr)) {
+          savedToolbarRange = nr.cloneRange();
+        }
+      }
+      if (keepFontField) fontSizeInput.focus();
+      refreshPinnedHighlight();
+    };
     const onFontSizePxFocus = () => {
       const sel = window.getSelection();
       if (sel && sel.rangeCount) {
@@ -1088,36 +1094,54 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
       }
       refreshPinnedHighlight();
     };
-    const applyPx = () => {
-      const raw = /** @type {HTMLInputElement} */ (fspx).value;
-      const n = parseInt(raw, 10);
+    const commitTypedFontSize = () => {
+      if (fontSizeInput.dataset.nlFontSizeCommit === '1') return;
+      const n = parseInt(fontSizeInput.value, 10);
       if (!Number.isFinite(n)) return;
-      const now = Date.now();
-      if (now - lastApplyTs < 40) return;
-      lastApplyTs = now;
-      const r = savedToolbarRange ? savedToolbarRange.cloneRange() : null;
-      editor.focus();
-      applyFontSizePxToSelection(n, r || undefined);
-      editor.host.dispatchEvent(new Event('input'));
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount) {
-        const nr = sel.getRangeAt(0);
-        if (selectionNonCollapsedInHost(nr)) {
-          savedToolbarRange = nr.cloneRange();
-        }
+      fontSizeInput.dataset.nlFontSizeCommit = '1';
+      applyCommittedFontSize(n);
+      queueMicrotask(() => {
+        delete fontSizeInput.dataset.nlFontSizeCommit;
+      });
+    };
+    /** El spinner y las flechas no traen inputType; teclear sí. Aplicar en cada tecla roba el foco y el siguiente dígito sustituye el texto seleccionado. */
+    const onFontSizeInput = (e) => {
+      const inputType = /** @type {InputEvent} */ (e).inputType || '';
+      if (
+        inputType === 'insertText' ||
+        inputType === 'insertCompositionText' ||
+        inputType === 'insertFromPaste' ||
+        inputType === 'insertReplacementText' ||
+        inputType === 'deleteContentBackward' ||
+        inputType === 'deleteContentForward' ||
+        inputType === 'deleteByCut'
+      ) {
+        return;
       }
-      refreshPinnedHighlight();
+      commitTypedFontSize();
     };
     fspx.addEventListener('focusin', onFontSizePxFocus);
     fspx.addEventListener('focus', onFontSizePxFocus);
-    fspx.addEventListener('input', applyPx);
-    fspx.addEventListener('change', applyPx);
-    fspx.addEventListener('blur', applyPx);
+    fspx.addEventListener('input', onFontSizeInput);
+    fspx.addEventListener('change', commitTypedFontSize);
+    fspx.addEventListener('blur', commitTypedFontSize);
     fspx.addEventListener('keydown', (e) => {
       if (/** @type {KeyboardEvent} */ (e).key === 'Enter') {
         e.preventDefault();
-        applyPx();
+        commitTypedFontSize();
+        editor.focus();
       }
+    });
+    toolbarEl.querySelectorAll('[data-font-size-step]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const delta = parseInt(btn.getAttribute('data-font-size-step') || '0', 10);
+        if (!delta) return;
+        const current = parseInt(fontSizeInput.value, 10);
+        const base = Number.isFinite(current) ? current : EDITOR_DEFAULT_FONT_SIZE_PX;
+        restoreSelectionFromSaved();
+        editor.focus();
+        applyCommittedFontSize(base + delta);
+      });
     });
   }
   const bs = toolbarEl.querySelector('[data-block-style]');
@@ -1205,6 +1229,13 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   }
 
   const onSel = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount) {
+      const r = sel.getRangeAt(0);
+      if (selectionNonCollapsedInHost(r)) {
+        savedToolbarRange = r.cloneRange();
+      }
+    }
     queueMicrotask(() => syncToolbarToSelection(toolbarEl, editor));
   };
   document.addEventListener('selectionchange', onSel);
@@ -1338,7 +1369,9 @@ export function toolbarHtml() {
       <label class="sr-only" for="nl-font-family">Fuente</label>
       <select data-font-family id="nl-font-family" class="bg-nl-raised border border-nl-border rounded px-2 py-1 text-xs text-slate-200 max-w-[9.5rem] shrink-0" title="Fuente">${fontFamilyOptions}</select>
       <label class="sr-only" for="nl-font-size-px">Tamaño (px)</label>
-      <input type="number" data-font-size-px id="nl-font-size-px" min="8" max="96" step="1" value="17" list="nl-font-size-datalist" inputmode="numeric" class="w-[4.25rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1.5 py-1 text-xs text-slate-200 tabular-nums" title="Tamaño en píxeles (lista o número manual)" />
+      <button type="button" data-font-size-step="-1" class="nl-tool-btn w-7 h-7 rounded text-slate-300 hover:bg-nl-raised text-lg leading-none" title="Reducir tamaño de fuente" aria-label="Reducir tamaño de fuente">−</button>
+      <input type="number" data-font-size-px id="nl-font-size-px" min="8" max="96" step="1" value="17" list="nl-font-size-datalist" inputmode="numeric" class="w-[4.25rem] shrink-0 bg-nl-raised border border-nl-border rounded px-1.5 py-1 text-xs text-slate-200 tabular-nums" title="Tamaño en píxeles. Escribe el número y confirma con Enter, o usa los botones." />
+      <button type="button" data-font-size-step="1" class="nl-tool-btn w-7 h-7 rounded text-slate-300 hover:bg-nl-raised text-lg leading-none" title="Aumentar tamaño de fuente" aria-label="Aumentar tamaño de fuente">+</button>
       <datalist id="nl-font-size-datalist">${sizeDatalist}</datalist>
       <button type="button" data-cmd="bold" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Negrita (Ctrl/Cmd+B)" aria-label="Negrita">${iconBold}</button>
       <button type="button" data-cmd="italic" class="nl-tool-btn p-1.5 rounded text-slate-200 hover:bg-nl-raised" title="Cursiva (Ctrl/Cmd+I)" aria-label="Cursiva">${iconItalic}</button>
