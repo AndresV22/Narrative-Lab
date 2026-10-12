@@ -79,6 +79,13 @@ html {
   pointer-events: none;
 }
 
+/* Un <p><br> no es :empty, pero el editor sigue visualmente vacío. */
+.nl-editor.nl-editor-empty:not(:empty)::before {
+  content: attr(data-placeholder);
+  color: rgb(148 163 184 / 0.5);
+  pointer-events: none;
+}
+
 mark.nl-search-hit {
   background-color: rgb(251 191 36 / 0.35);
   color: inherit;

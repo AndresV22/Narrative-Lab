@@ -21,7 +21,12 @@ import {
   getFontSizePxForToolbar,
   getForeColorCssForToolbar,
 } from './editor-font.js';
-import { flattenPageLayout, layoutEditorPages, wrapContentInFirstPage } from './editor-paginate.js';
+import {
+  editorContentHtml,
+  layoutEditorPages,
+  normalizeEditorHostContent,
+  wrapContentInFirstPage,
+} from './editor-paginate.js';
 import { attachListKeyboard, execInsertList } from './editor-list-behavior.js';
 import {
   clearToolbarPinnedHighlight,
@@ -94,6 +99,89 @@ function blockTextsFromEditorHtml(html) {
 }
 
 /**
+ * @param {string} line
+ */
+function isDialogueLine(line) {
+  const t = line.trim();
+  return /^[—\-–]\s*\S/.test(t) || /^[«"“]/.test(t) || /[»"”]\s*$/.test(t);
+}
+
+/**
+ * @param {string} raw
+ * @param {string[]} out
+ */
+function pushDialoguePieces(raw, out) {
+  for (const part of String(raw).split(/\n/)) {
+    const t = part.replace(/\s+/g, ' ').trim();
+    if (t) out.push(t);
+  }
+}
+
+/**
+ * Líneas de un bloque, partiendo también por &lt;br&gt; (textContent las junta).
+ * @param {HTMLElement} el
+ * @param {string[]} out
+ */
+function linesFromElement(el, out) {
+  let buf = '';
+  const flush = () => {
+    pushDialoguePieces(buf, out);
+    buf = '';
+  };
+  const walk = (/** @type {Node} */ node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      buf += node.textContent || '';
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (/** @type {Element} */ (node).tagName === 'BR') {
+      flush();
+      return;
+    }
+    for (const child of node.childNodes) walk(child);
+  };
+  walk(el);
+  flush();
+}
+
+/**
+ * `stripHtml` no mete saltos entre párrafos, así que el diálogo hay que leerlo por bloque y por &lt;br&gt;.
+ * @param {string} html
+ * @returns {string[]}
+ */
+function dialogueLinesFromEditorHtml(html) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html || '';
+  /** @type {string[]} */
+  const lines = [];
+  const blocks = wrap.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote');
+  if (blocks.length === 0) {
+    pushDialoguePieces(stripHtml(html || ''), lines);
+    return lines;
+  }
+  blocks.forEach((el) => {
+    if (el.tagName === 'LI' && el.querySelector('p, blockquote')) return;
+    if (el.tagName === 'BLOCKQUOTE' && el.querySelector('p')) return;
+    linesFromElement(/** @type {HTMLElement} */ (el), lines);
+  });
+  return lines;
+}
+
+/**
+ * @param {string} cmd
+ * @param {string} [value]
+ * @returns {boolean}
+ */
+function execEditorCommand(cmd, value) {
+  try {
+    if (value === undefined) return document.execCommand(cmd, false);
+    return document.execCommand(cmd, false, value);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * @param {string} html
  * @returns {EditorRealtimeMetrics}
  */
@@ -136,15 +224,12 @@ export function computeEditorRealtimeMetrics(html) {
   topRepeats.sort((a, b) => b.count - a.count);
   const top5 = topRepeats.slice(0, 5);
 
-  const rawLines = text.split(/\n/).filter((l) => l.trim());
+  const dialogueLines = dialogueLinesFromEditorHtml(html || '');
   let dialogueish = 0;
-  for (const line of rawLines) {
-    const t = line.trim();
-    if (/^[—\-–]\s*\S/.test(t) || /^[«"]/.test(t) || /[»"]\s*$/.test(t) || /^(\u2014|\u2013)\s/.test(t)) {
-      dialogueish++;
-    }
+  for (const line of dialogueLines) {
+    if (isDialogueLine(line)) dialogueish++;
   }
-  const dialogueRatio = rawLines.length ? dialogueish / rawLines.length : 0;
+  const dialogueRatio = dialogueLines.length ? dialogueish / dialogueLines.length : 0;
 
   return {
     topRepeats: top5,
@@ -180,7 +265,14 @@ export class RichEditor {
     this._toolbarHandler = null;
     /** @type {(() => void) | null} */
     this._listKeyboardCleanup = null;
-    this._debounced = debounce((html) => this._onChange(html), 500);
+    this._pendingHtml = null;
+    this._debounced = debounce((html) => {
+      this._pendingHtml = null;
+      // #region agent log
+      fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'A',location:'editor.js:debounced',message:'onChange debounce fired',data:{htmlLen:(html||'').length,hasProbe:String(html||'').includes('perderse')},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      this._onChange(html);
+    }, 500);
     this._debouncedProgress = debounce(() => {
       if (this.options.progressMode === 'debounce' && this.options.onProgressRefresh) {
         this.options.onProgressRefresh();
@@ -199,6 +291,10 @@ export class RichEditor {
     this._lastKnownHtml = '';
     /** Evita registrar un paso extra al aplicar deshacer/rehacer. */
     this._ignoreHistoryForUndoRedo = false;
+    /** @type {(() => void) | null} */
+    this._onInput = null;
+    /** @type {((e: ClipboardEvent) => void) | null} */
+    this._onPasteBound = null;
   }
 
   mount(initialHtml = '') {
@@ -229,14 +325,20 @@ export class RichEditor {
       this.host.dataset.placeholder = this.options.placeholder;
     }
     this.host.innerHTML = initialHtml || '';
+    normalizeEditorHostContent(this.host);
     this._undoStack = [];
     this._redoStack = [];
     this._lastKnownHtml = this.getHtml();
-    this.host.addEventListener('input', () => {
+    this._onInput = () => {
+      this._syncEmptyState();
       const html = this.getHtml();
       if (!this._ignoreHistoryForUndoRedo) {
         this._recordHtmlHistoryIfChanged(html);
       }
+      this._pendingHtml = html;
+      // #region agent log
+      fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'C',location:'editor.js:_onInput',message:'input scheduled debounce',data:{htmlLen:(html||'').length,hasProbe:String(html||'').includes('perderse')},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       this._debounced(html);
       if (this.options.progressMode === 'debounce') {
         this._debouncedProgress();
@@ -244,8 +346,11 @@ export class RichEditor {
       if (this.options.onRealtimeMetrics) {
         this._debouncedRealtime(html);
       }
-    });
-    this.host.addEventListener('paste', (e) => this._onPaste(e));
+    };
+    this._onPasteBound = (e) => this._onPaste(e);
+    this.host.addEventListener('input', this._onInput);
+    this.host.addEventListener('paste', this._onPasteBound);
+    this._syncEmptyState();
     try {
       document.execCommand('defaultParagraphSeparator', false, 'p');
     } catch {
@@ -256,11 +361,18 @@ export class RichEditor {
   }
 
   destroy() {
+    // #region agent log
+    fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'A',location:'editor.js:destroy',message:'destroy before cancel',data:{pendingLen:(this._pendingHtml||'').length,pendingProbe:String(this._pendingHtml||'').includes('perderse'),hostLen:(this.host?.textContent||'').length,hostProbe:String(this.host?.textContent||'').includes('perderse')},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     this._debounced.cancel();
     this._debouncedProgress.cancel();
     this._debouncedRealtime.cancel();
     this._listKeyboardCleanup?.();
     this._listKeyboardCleanup = null;
+    if (this._onInput) this.host.removeEventListener('input', this._onInput);
+    if (this._onPasteBound) this.host.removeEventListener('paste', this._onPasteBound);
+    this._onInput = null;
+    this._onPasteBound = null;
     if (this._keyHandler) {
       this.host.removeEventListener('keydown', this._keyHandler, true);
     }
@@ -297,28 +409,45 @@ export class RichEditor {
     }
   }
 
+  /**
+   * Restaura HTML lógico. El flag sigue activo durante el `input` para no borrar la pila de rehacer
+   * si el navegador normaliza el marcado al asignar innerHTML.
+   * @param {string} html
+   */
+  _applyHistoryHtml(html) {
+    this._ignoreHistoryForUndoRedo = true;
+    try {
+      this.host.innerHTML = html || '';
+      normalizeEditorHostContent(this.host);
+      this._lastKnownHtml = this.getHtml();
+      this._syncEmptyState();
+      this._collapseSelectionToEnd();
+      if (this.host.classList.contains('nl-editor-page-layout')) {
+        layoutEditorPages(this.host);
+      }
+      this.host.dispatchEvent(new Event('input'));
+    } finally {
+      this._ignoreHistoryForUndoRedo = false;
+    }
+  }
+
   _editorUndo() {
     if (this._undoStack.length === 0) return;
-    const prev = this._undoStack.pop();
+    const prev = /** @type {string} */ (this._undoStack.pop());
     this._redoStack.push(this.getHtml());
-    this._ignoreHistoryForUndoRedo = true;
-    this.host.innerHTML = prev;
-    this._lastKnownHtml = prev;
-    this._ignoreHistoryForUndoRedo = false;
-    this._collapseSelectionToEnd();
-    this.host.dispatchEvent(new Event('input'));
+    this._applyHistoryHtml(prev);
   }
 
   _editorRedo() {
     if (this._redoStack.length === 0) return;
-    const next = this._redoStack.pop();
+    const next = /** @type {string} */ (this._redoStack.pop());
     this._undoStack.push(this.getHtml());
-    this._ignoreHistoryForUndoRedo = true;
-    this.host.innerHTML = next;
-    this._lastKnownHtml = next;
-    this._ignoreHistoryForUndoRedo = false;
-    this._collapseSelectionToEnd();
-    this.host.dispatchEvent(new Event('input'));
+    this._applyHistoryHtml(next);
+  }
+
+  _syncEmptyState() {
+    const text = (this.host.textContent || '').replace(/\u200b/g, '').replace(/\u00a0/g, ' ').trim();
+    this.host.classList.toggle('nl-editor-empty', text.length === 0);
   }
 
   /**
@@ -327,7 +456,41 @@ export class RichEditor {
   _onPaste(e) {
     e.preventDefault();
     const text = e.clipboardData?.getData('text/plain') || '';
-    document.execCommand('insertText', false, text);
+    if (!text) return;
+    this._insertPlainText(text);
+  }
+
+  /**
+   * Inserta texto plano en el caret. Si `insertText` no existe o no aplica, lo hace por DOM.
+   * @param {string} text
+   */
+  _insertPlainText(text) {
+    if (!text) return;
+    let inserted = false;
+    try {
+      inserted = document.execCommand('insertText', false, text);
+    } catch {
+      inserted = false;
+    }
+    if (!inserted) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        const anchor = range.commonAncestorContainer;
+        if (anchor === this.host || this.host.contains(anchor)) {
+          range.deleteContents();
+          const node = document.createTextNode(text);
+          range.insertNode(node);
+          const next = document.createRange();
+          next.setStartAfter(node);
+          next.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(next);
+          inserted = true;
+        }
+      }
+    }
+    if (inserted) this._afterInsert();
   }
 
   _bindShortcuts() {
@@ -347,7 +510,7 @@ export class RichEditor {
         const inList = el && host.contains(el) && /** @type {Element} */ (el).closest?.('li');
         if (inList) {
           e.preventDefault();
-          document.execCommand(e.shiftKey ? 'outdent' : 'indent', false);
+          execEditorCommand(e.shiftKey ? 'outdent' : 'indent');
           this._afterInsert();
           return;
         }
@@ -358,7 +521,13 @@ export class RichEditor {
         host.dispatchEvent(new CustomEvent('nl-editor-zoom-in', { bubbles: true }));
         return;
       }
-      if (mod && (e.key === '-' || e.code === 'Minus')) {
+      if (mod && e.shiftKey && this._isEmDashKey(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        this._insertPlainText('—');
+        return;
+      }
+      if (mod && !e.shiftKey && (e.key === '-' || e.code === 'Minus')) {
         e.preventDefault();
         host.dispatchEvent(new CustomEvent('nl-editor-zoom-out', { bubbles: true }));
         return;
@@ -389,31 +558,26 @@ export class RichEditor {
 
       if (mod && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        document.execCommand('bold', false);
+        execEditorCommand('bold');
+        this._afterInsert();
         return;
       }
       if (mod && e.key.toLowerCase() === 'i') {
         e.preventDefault();
-        document.execCommand('italic', false);
+        execEditorCommand('italic');
+        this._afterInsert();
         return;
       }
       if (mod && e.key.toLowerCase() === 'u') {
         e.preventDefault();
-        document.execCommand('underline', false);
-        return;
-      }
-      if (mod && e.shiftKey && this._isEmDashKey(e)) {
-        e.preventDefault();
-        e.stopPropagation();
-        document.execCommand('insertText', false, '—');
+        execEditorCommand('underline');
         this._afterInsert();
         return;
       }
       if (e.altKey && !mod && e.code === 'KeyM') {
         e.preventDefault();
         e.stopPropagation();
-        document.execCommand('insertText', false, '—');
-        this._afterInsert();
+        this._insertPlainText('—');
         return;
       }
       if (this.options.progressMode === 'boundary' && this.options.onProgressRefresh) {
@@ -441,7 +605,7 @@ export class RichEditor {
   }
 
   getHtml() {
-    return this.host.innerHTML;
+    return editorContentHtml(this.host);
   }
 
   /**
@@ -449,6 +613,9 @@ export class RichEditor {
    */
   setHtml(html) {
     this.host.innerHTML = html || '';
+    normalizeEditorHostContent(this.host);
+    this._lastKnownHtml = this.getHtml();
+    this._syncEmptyState();
   }
 
   focus() {
@@ -524,6 +691,19 @@ function syncToolbarToSelection(toolbarEl, editor) {
     const block = getCurrentBlock(host);
     const preset = block ? getBlockLineHeightPreset(block) : '';
     /** @type {HTMLSelectElement} */ (lh).value = preset || '';
+  }
+
+  for (const cmd of ['bold', 'italic', 'underline']) {
+    const btn = toolbarEl.querySelector(`[data-cmd="${cmd}"]`);
+    if (!(btn instanceof HTMLElement)) continue;
+    let on = false;
+    try {
+      on = document.queryCommandState(cmd);
+    } catch {
+      on = false;
+    }
+    btn.classList.toggle('bg-indigo-500/25', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 
   const alignBtns = toolbarEl.querySelectorAll('[data-cmd^="justify"]');
@@ -620,7 +800,7 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
   const run = (cmd, value = '') => {
     restoreSelectionFromSaved();
     editor.focus();
-    document.execCommand(cmd, false, value);
+    execEditorCommand(cmd, value);
     editor.host.dispatchEvent(new Event('input'));
     syncSavedRangeAfterCommand();
   };
@@ -729,7 +909,7 @@ export function bindToolbar(toolbarEl, editor, hooks = {}) {
         queueMicrotask(() => layoutEditorPages(editor.host));
       } else {
         editor.host.classList.remove('nl-editor-page-layout');
-        flattenPageLayout(editor.host);
+        normalizeEditorHostContent(editor.host);
         if (sheet) {
           for (const p of EDITOR_PAGE_SIZE_PRESETS) {
             sheet.classList.remove(`nl-editor-sheet--${p.id}`);

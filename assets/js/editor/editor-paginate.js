@@ -255,13 +255,17 @@ function removeNodeAndFollowingInDocument(textNode, root) {
 
 /**
  * Quita elementos vacíos (p. ej. strong sin texto) de abajo arriba.
+ * No toca el marcador de cursor ni sus ancestros: si no, el caret se pierde al partir un párrafo.
  * @param {HTMLElement} root
  */
 function pruneEmptyElements(root) {
   const list = root.querySelectorAll('*');
   for (let i = list.length - 1; i >= 0; i--) {
     const el = list[i];
+    if (!el.isConnected) continue;
     if (el.tagName === 'BR') continue;
+    if (el.hasAttribute('data-nl-caret-marker')) continue;
+    if (el.querySelector('[data-nl-caret-marker]')) continue;
     if (!el.textContent?.trim()) el.remove();
   }
 }
@@ -383,8 +387,130 @@ function ensureBlockEditable(el) {
   const tag = el.tagName.toLowerCase();
   if (tag !== 'p' && tag !== 'li') return;
   if (!el.textContent?.trim()) {
+    const marker = el.querySelector('[data-nl-caret-marker]');
     el.innerHTML = '';
+    if (marker) el.appendChild(marker);
     el.appendChild(document.createElement('br'));
+  }
+}
+
+/**
+ * @param {Element} a
+ * @param {Element} b
+ */
+function sameElementSignature(a, b) {
+  if (a.tagName !== b.tagName) return false;
+  if (a.attributes.length !== b.attributes.length) return false;
+  for (const attr of a.attributes) {
+    if (b.getAttribute(attr.name) !== attr.value) return false;
+  }
+  return true;
+}
+
+/**
+ * Une inline partidos por la paginación. No pega comentarios o destacados distintos.
+ * @param {Element} a
+ * @param {Element} b
+ */
+function canMergeSplitInlines(a, b) {
+  if (a.tagName === 'BR' || b.tagName === 'BR') return false;
+  const aComment = a.getAttribute('data-nl-comment-id');
+  const bComment = b.getAttribute('data-nl-comment-id');
+  if ((aComment || bComment) && aComment !== bComment) return false;
+  const aHighlight = a.getAttribute('data-nl-highlight-id');
+  const bHighlight = b.getAttribute('data-nl-highlight-id');
+  if ((aHighlight || bHighlight) && aHighlight !== bHighlight) return false;
+  return sameElementSignature(a, b);
+}
+
+/**
+ * Une textos contiguos e inline idénticos que quedaron partidos al cruzar una página.
+ * @param {Node} parent
+ */
+function mergeAdjacentInlines(parent) {
+  let child = parent.firstChild;
+  while (child) {
+    if (child.nodeType === Node.ELEMENT_NODE) mergeAdjacentInlines(child);
+    const next = child.nextSibling;
+    if (!next) break;
+    if (child.nodeType === Node.TEXT_NODE && next.nodeType === Node.TEXT_NODE) {
+      child.textContent = (child.textContent || '') + (next.textContent || '');
+      next.remove();
+      continue;
+    }
+    if (
+      child.nodeType === Node.ELEMENT_NODE &&
+      next.nodeType === Node.ELEMENT_NODE &&
+      canMergeSplitInlines(/** @type {Element} */ (child), /** @type {Element} */ (next))
+    ) {
+      while (next.firstChild) child.appendChild(next.firstChild);
+      next.remove();
+      continue;
+    }
+    child = next;
+  }
+}
+
+/**
+ * Junta colas marcadas con `data-nl-page-cont` al bloque anterior del mismo tipo.
+ * La paginación visual no debe quedar guardada como párrafos distintos.
+ * @param {HTMLElement[]} blocks
+ * @returns {HTMLElement[]}
+ */
+function mergeContinuationBlockList(blocks) {
+  /** @type {HTMLElement[]} */
+  const out = [];
+  for (const block of blocks) {
+    const prev = out[out.length - 1];
+    const cont = block.getAttribute('data-nl-page-cont') === '1';
+    if (cont && prev && prev.tagName === block.tagName) {
+      while (block.firstChild) prev.appendChild(block.firstChild);
+      block.remove();
+      mergeAdjacentInlines(prev);
+    } else {
+      block.removeAttribute('data-nl-page-cont');
+      out.push(block);
+    }
+  }
+  return out;
+}
+
+/**
+ * Quita cromo de paginación (hojas y cortes visuales) y deja el HTML narrativo.
+ * @param {HTMLElement} host
+ */
+export function normalizeEditorHostContent(host) {
+  host.querySelectorAll('[data-nl-caret-marker]').forEach((marker) => marker.remove());
+  flattenPageLayout(host);
+  const blocks = [...host.children].filter((node) => node.nodeType === Node.ELEMENT_NODE);
+  mergeContinuationBlockList(/** @type {HTMLElement[]} */ (blocks));
+}
+
+/**
+ * HTML que debe persistirse: sin `.nl-page` y con los párrafos partidos vueltos a unir.
+ * @param {HTMLElement} host
+ * @returns {string}
+ */
+export function editorContentHtml(host) {
+  const clone = /** @type {HTMLElement} */ (host.cloneNode(true));
+  normalizeEditorHostContent(clone);
+  return clone.innerHTML;
+}
+
+/**
+ * No roba el foco si el usuario ya pasó a otro control (barra, panel, etc.).
+ * @param {HTMLElement} host
+ */
+function focusHostIfEditing(host) {
+  const active = document.activeElement;
+  if (
+    !active ||
+    active === document.body ||
+    active === document.documentElement ||
+    active === host ||
+    host.contains(active)
+  ) {
+    host.focus();
   }
 }
 
@@ -399,7 +525,7 @@ export function layoutEditorPages(host) {
   const savedOffset = saveCaretTextOffset(host);
   const markerPlaced = insertCaretMarker(host);
 
-  const blocks = collectTopLevelBlocks(host);
+  const blocks = mergeContinuationBlockList(collectTopLevelBlocks(host));
   /** @type {HTMLElement[]} */
   const detached = [];
   for (const b of blocks) {
@@ -442,6 +568,7 @@ export function layoutEditorPages(host) {
             remaining = null;
             break;
           }
+          remaining.setAttribute('data-nl-page-cont', '1');
           page = createPageElement();
           host.appendChild(page);
           continue;
@@ -466,6 +593,6 @@ export function layoutEditorPages(host) {
     } else if (savedOffset !== null) {
       restoreCaretTextOffset(host, savedOffset);
     }
-    host.focus();
+    focusHostIfEditing(host);
   });
 }

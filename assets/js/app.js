@@ -294,6 +294,9 @@ export class App {
     } else if (kind === 'note' && id) {
       const n = book.notes.find((x) => x.id === id);
       initial = n?.content || '';
+      // #region agent log
+      fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'E',location:'app.js:attachEditor',message:'mount note initial',data:{noteFound:!!n,initialLen:initial.length,initialProbe:initial.includes('perderse')},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     } else if (kind === 'extra' && id) {
       const ex = book.extraBlocks?.find((x) => x.id === id);
       initial = ex?.content || '';
@@ -560,6 +563,9 @@ export class App {
    */
   applyEditorHtml(kind, id, chapterId, html) {
     const book = this.getCurrentBook();
+    // #region agent log
+    fetch('http://127.0.0.1:7656/ingest/6fb532fd-72bc-42be-960f-39be01a7b2ea',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'952921'},body:JSON.stringify({sessionId:'952921',hypothesisId:'B',location:'app.js:applyEditorHtml',message:'apply editor html',data:{kind,hasBook:!!book,htmlLen:(html||'').length,hasProbe:String(html||'').includes('perderse'),noteFound:kind==='note'&&!!book?.notes?.find((x)=>x.id===id)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!book) return;
     if (kind === 'synopsis') book.synopsis = html;
     else if (kind === 'historicalContext') book.historicalContext = html;
