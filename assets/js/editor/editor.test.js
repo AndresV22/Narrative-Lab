@@ -120,6 +120,33 @@ describe('RichEditor', () => {
   });
 });
 
+describe('salto de línea', () => {
+  it('Enter deja el cursor en un texto de la línea nueva y no lo guarda', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const editor = new RichEditor(host);
+    editor.mount('<p>Hola mundo</p><p><br></p>');
+    const blank = host.querySelectorAll('p')[1];
+    const range = document.createRange();
+    range.setStart(blank, 0);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+
+    host.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertParagraph' }));
+
+    const caret = sel?.getRangeAt(0);
+    expect(caret?.startContainer.nodeType).toBe(Node.TEXT_NODE);
+    expect(blank.textContent).toContain('\u200b');
+    expect(editor.getHtml()).not.toContain('\u200b');
+    expect(editor.getHtml()).toContain('Hola mundo');
+
+    editor.destroy();
+    host.remove();
+  });
+});
+
 describe('tamaño de fuente', () => {
   /**
    * @returns {{ wrap: HTMLElement, host: HTMLElement, editor: RichEditor, input: HTMLInputElement, cleanup: () => void }}

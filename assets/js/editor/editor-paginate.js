@@ -494,7 +494,25 @@ export function normalizeEditorHostContent(host) {
 export function editorContentHtml(host) {
   const clone = /** @type {HTMLElement} */ (host.cloneNode(true));
   normalizeEditorHostContent(clone);
+  stripCaretPlaceholders(clone);
   return clone.innerHTML;
+}
+
+/**
+ * Quita el ancho cero que solo sirve para pintar el cursor tras un salto.
+ * @param {HTMLElement} root
+ */
+function stripCaretPlaceholders(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  /** @type {Text[]} */
+  const texts = [];
+  let n;
+  while ((n = walker.nextNode())) texts.push(/** @type {Text} */ (n));
+  for (const text of texts) {
+    if (!text.nodeValue || !text.nodeValue.includes('\u200b')) continue;
+    text.nodeValue = text.nodeValue.replace(/\u200b/g, '');
+    if (!text.nodeValue) text.remove();
+  }
 }
 
 /**

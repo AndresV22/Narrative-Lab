@@ -263,3 +263,46 @@ export function unwrapCommentMarkInHost(host, commentId) {
 export function findCommentMarkEl(host, commentId) {
   return host.querySelector(`span.nl-comment-mark[data-nl-comment-id="${commentId}"]`);
 }
+
+/**
+ * Tras Enter el navegador deja el cursor en el elemento (p. ej. &lt;p&gt;|&lt;br&gt;) y no le calcula
+ * un rectángulo, así que lo pinta en la línea anterior. Un texto de ancho cero sí tiene posición.
+ * @param {HTMLElement} host
+ */
+export function anchorCaretAfterBreak(host) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const container = range.startContainer;
+  if (container !== host && !host.contains(container)) return;
+  if (container.nodeType === Node.TEXT_NODE) return;
+  if (container.nodeType !== Node.ELEMENT_NODE || container === host) return;
+
+  const el = /** @type {HTMLElement} */ (container);
+  const offset = range.startOffset;
+  const next = el.childNodes[offset] || null;
+  const prev = offset > 0 ? el.childNodes[offset - 1] : null;
+
+  /** @param {Node} text @param {number} at */
+  const selectIn = (text, at) => {
+    const nextRange = document.createRange();
+    const len = text.nodeValue ? text.nodeValue.length : 0;
+    nextRange.setStart(text, Math.min(Math.max(at, 0), len));
+    nextRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(nextRange);
+  };
+
+  if (next && next.nodeType === Node.TEXT_NODE) {
+    selectIn(next, 0);
+    return;
+  }
+  if (prev && prev.nodeType === Node.TEXT_NODE) {
+    selectIn(prev, prev.nodeValue ? prev.nodeValue.length : 0);
+    return;
+  }
+
+  const placeholder = document.createTextNode('\u200b');
+  el.insertBefore(placeholder, next);
+  selectIn(placeholder, placeholder.nodeValue.length);
+}

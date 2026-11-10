@@ -4,6 +4,7 @@
 
 import { debounce, stripHtml } from '../core/utils.js';
 import {
+  anchorCaretAfterBreak,
   clampZoom,
   getBlockLineHeightPreset,
   getCurrentBlock,
@@ -287,6 +288,8 @@ export class RichEditor {
     this._ignoreHistoryForUndoRedo = false;
     /** @type {(() => void) | null} */
     this._onInput = null;
+    /** @type {((e: InputEvent) => void) | null} */
+    this._onBreakBound = null;
     /** @type {((e: ClipboardEvent) => void) | null} */
     this._onPasteBound = null;
   }
@@ -338,7 +341,12 @@ export class RichEditor {
       }
     };
     this._onPasteBound = (e) => this._onPaste(e);
+    this._onBreakBound = (/** @type {InputEvent} */ e) => {
+      if (e.inputType !== 'insertParagraph' && e.inputType !== 'insertLineBreak') return;
+      anchorCaretAfterBreak(this.host);
+    };
     this.host.addEventListener('input', this._onInput);
+    this.host.addEventListener('input', this._onBreakBound);
     this.host.addEventListener('paste', this._onPasteBound);
     this._syncEmptyState();
     try {
@@ -357,8 +365,10 @@ export class RichEditor {
     this._listKeyboardCleanup?.();
     this._listKeyboardCleanup = null;
     if (this._onInput) this.host.removeEventListener('input', this._onInput);
+    if (this._onBreakBound) this.host.removeEventListener('input', this._onBreakBound);
     if (this._onPasteBound) this.host.removeEventListener('paste', this._onPasteBound);
     this._onInput = null;
+    this._onBreakBound = null;
     this._onPasteBound = null;
     if (this._keyHandler) {
       this.host.removeEventListener('keydown', this._keyHandler, true);
